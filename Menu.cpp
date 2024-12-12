@@ -68,7 +68,7 @@ void Menu::RenderCache()
     for (auto& obj : cache.render)
     {
         auto ent_origin = obj.pos;
-        auto distance = cache.localPlayer.pos.Distance(ent_origin);
+        auto distance = cache.cameraView.origin().Distance(ent_origin);
 
         Engine::Vec2 screen;
         if (!Engine::Tools::ProjectWorldToScreen(ent_origin, cache.cameraView, 60.f, szScreen, &screen))   

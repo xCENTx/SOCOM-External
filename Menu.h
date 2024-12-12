@@ -1,8 +1,8 @@
 #pragma once
 #include <DXWindow/DXWindow.h>
+#include <SDK/SOCOM.h>
 #include <chrono>
 #include <thread>
-#include "SOCOM.h"
 using namespace std::chrono_literals;
 
 class Menu
