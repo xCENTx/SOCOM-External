@@ -2,11 +2,14 @@
 #include "DxWindow.h"
 #include <dwmapi.h>
 
+DxWindow::DxWindow() { }
+
+DxWindow::~DxWindow() { this->Shutdown(); }
+
 MARGINS gMargin;
-DxWindow::DxWindow()
+void DxWindow::Init()
 {
-    m_szScreen.x = GetSystemMetrics(SM_CXSCREEN);
-    m_szScreen.y = GetSystemMetrics(SM_CYSCREEN);
+    m_szScreen = ImVec2(GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
     m_wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"Dx11 External Base", nullptr };
     ::RegisterClassEx(&m_wc);
     m_hwnd = ::CreateWindowW(m_wc.lpszClassName, L"Dx11 External Base", WS_EX_TOPMOST | WS_POPUP, 0, 0, static_cast<int>(m_szScreen.x), static_cast<int>(m_szScreen.y), nullptr, nullptr, m_wc.hInstance, nullptr);
@@ -22,7 +25,7 @@ DxWindow::DxWindow()
     }
 
     ::ShowWindow(m_hwnd, SW_SHOWDEFAULT);
-    ::UpdateWindow(m_hwnd); 
+    ::UpdateWindow(m_hwnd);
     SetWindowLong(m_hwnd, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT);
 
     IMGUI_CHECKVERSION();
@@ -34,13 +37,13 @@ DxWindow::DxWindow()
 
     ImGui::StyleColorsDark();
     ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowTitleAlign = ImVec2(.5f, .5f);
+    style.WindowTitleAlign = ImVec2(.5f, .5f);                  // Center Align Window Title
 
     ImGui_ImplWin32_Init(m_hwnd);
     ImGui_ImplDX11_Init(m_pd3dDevice, m_pd3dDeviceContext);
 }
 
-DxWindow::~DxWindow()
+void DxWindow::Shutdown()
 {
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
@@ -119,7 +122,29 @@ void DxWindow::CleanupRenderTarget()
     }
 }
 
+void DxWindow::SetWindowStyle(LONG flags) { SetWindowLong(m_hwnd, GWL_EXSTYLE, flags); }
+
+void DxWindow::ClickThrough(bool bIsClickThrough)
+{
+    LONG flags = WS_EX_LAYERED;
+
+    if (bIsClickThrough)
+        flags = WS_EX_LAYERED | WS_EX_TRANSPARENT;
+
+    SetWindowStyle(flags);
+}
+
+void DxWindow::SetWindowFocus(HWND window)
+{
+    SetForegroundWindow(window);
+    SetActiveWindow(window);
+}
+
 ImVec2 DxWindow::GetScreenSize() { return m_szScreen; }
+
+ImVec2 DxWindow::GetCloneWindowSize() { return m_szClone; }
+
+ImVec2 DxWindow::GetCloneWindowPos() { return m_posClone; }
 
 HWND DxWindow::GetWindowHandle() { return m_hwnd; }
 
@@ -147,14 +172,38 @@ void DxWindow::Update(SOverlay bind)
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
-    
-    bind.Hud();
+
+    if (bind.bIsShown)
+    {
+        bind.Shroud();
+        bind.Menu();
+    }
+    else
+        bind.Hud();
+
+    ClickThrough(!bind.bIsShown);
 
     ImGui::Render();
     m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, NULL);
     m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, (float*)clearColor);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
     m_pSwapChain->Present(1, 0);
+}
+
+void DxWindow::CloneUpdate(HWND window)
+{
+    RECT clientRect;
+    POINT topLeft{};
+    POINT bottomRight{};
+    GetClientRect(window, &clientRect);
+    topLeft.x = clientRect.left;
+    topLeft.y = clientRect.top;
+    bottomRight.x = clientRect.right;
+    bottomRight.y = clientRect.bottom;
+    ClientToScreen(window, &topLeft);
+    ClientToScreen(window, &bottomRight);
+    m_posClone = { float(topLeft.x), float(topLeft.y) };
+    m_szClone = { float((bottomRight.x - topLeft.x)), float((bottomRight.y - topLeft.y)) };
 }
 
 LRESULT WINAPI DxWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)

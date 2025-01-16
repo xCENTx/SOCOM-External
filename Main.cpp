@@ -1,8 +1,8 @@
 #include "Menu.h"
-static bool bRunning{ true };
 
-int GameUpdate();
+int mainthread();
 
+static int LastTick = 0;
 int main()
 {
 	g_Memory = std::make_unique<Memory>("pcsx2-qt.exe");
@@ -14,15 +14,26 @@ int main()
 
 	g_dxWindow = std::make_unique<DxWindow>();
 	g_Menu = std::make_unique<Menu>();
-	g_SOCOM = std::make_unique<SOCOM>();
 
-	std::thread wcw(GameUpdate);
+	std::thread wcw(mainthread);
 
-	while (bRunning)
+	while (g_Menu->bRunning)
 	{
-		if (GetAsyncKeyState(VK_END) & 0x8000)
-			bRunning = false;
-		
+		bool bTimer = GetTickCount64() - LastTick > 500;
+		if (GetAsyncKeyState(VK_LCONTROL) & 0x8000 && bTimer)
+		{
+			g_Menu->bShowMenu ^= 1;
+			g_Menu->UpdateOverlayViewState(g_Menu->bShowMenu);
+			switch (g_Menu->bShowMenu)
+			{
+				case(true): g_dxWindow->SetWindowFocus(g_dxWindow->GetWindowHandle()); break;
+				case(false): g_dxWindow->SetWindowFocus(vmProcess.hWnd); break;
+			}
+
+			LastTick = GetTickCount64();
+		}
+
+		g_dxWindow->CloneUpdate(vmProcess.hWnd);
 		g_dxWindow->Update(g_Menu->GetOverlay());
 
 		std::this_thread::sleep_for(1ms);
@@ -38,9 +49,9 @@ int main()
 	return EXIT_SUCCESS;
 }
 
-int GameUpdate()
+int mainthread()
 {
-	while (bRunning)
+	while (g_Menu->bRunning)
 	{
 		g_SOCOM->Update();
 
