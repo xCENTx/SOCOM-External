@@ -4,7 +4,7 @@
 
 DxWindow::DxWindow() { }
 
-DxWindow::~DxWindow() { this->Shutdown(); }
+DxWindow::~DxWindow() { }
 
 MARGINS gMargin;
 void DxWindow::Init()
