@@ -2,35 +2,67 @@
 
 Menu::Menu()
 {
+    //  establish overlay elements
     elements.bIsShown = bShowMenu;
     elements.Menu = std::bind(&Menu::Draw, this);
     elements.Shroud = std::bind(&Menu::SHROUD, this);
     elements.Hud = std::bind(&Menu::HUD, this);
 
-    //  load game data
-    g_SOCOM = std::make_unique<SOCOM>();
+    bRunning = g_PSXMemory.bAttached;
+}
 
-    //	Initialize d3d window
-    g_dxWindow->Init();
+Menu::~Menu()
+{
+    elements = DxWindow::SOverlay();
+    bRunning = false;
+}
 
-    //  load configuration settings
+ImRect Menu::GetImGuiMenuBounds()
+{
+    const ImVec2& posClone = g_dxWindow->GetCloneWindowPos();   //  get the position of the cloned application window
+    const ImVec2& szClone = g_dxWindow->GetCloneWindowSize();   //  get the size of the cloned application window
+    const ImVec2& halfClone = szClone * .5;                     //  half application window size
+
+    //  Get Window Size
+    ImVec2 szMenu(halfClone);           //  overlay imgui menu window size
+    ImVec2 szMenuMax(800.f, 600.f);     //  max overlay imgui menu window size
+    szMenu.x = (szMenu.x > szMenuMax.x) ? szMenuMax.x : szMenu.x;
+    szMenu.y = (szMenu.y > szMenuMax.y) ? szMenuMax.y : szMenu.y;
+
+    //  Get Window Position
+    ImVec2 posMenu = posClone + halfClone - szMenu * .5;   //  overlay imgui menu window position
+    return ImRect(posMenu, posMenu + szMenu);
+}
+
+ImRect Menu::GetCloneOverlayBounds()
+{
+    return ImRect(
+        g_dxWindow->GetCloneWindowPos(),
+        g_dxWindow->GetCloneWindowPos() + g_dxWindow->GetCloneWindowSize()
+    );
+}
+
+ImRect Menu::GetClientScreenBounds()
+{
+    return ImRect(
+        ImVec2(0, 0),
+        ImVec2(g_dxWindow->GetScreenSize())
+    );
 }
 
 void Menu::Draw()
 {
-    if (bShowMenu)
-        MainMenu();
+    if (!bShowMenu)
+        return;
+    
+    MainMenu();
 }
 
-static bool bESP{ false };
-static float mESPDist{ 100.f };
 void Menu::MainMenu()
 {
-    static ImVec2 MenuSize = ImVec2(800, 600);
-    ImVec2 ScreenSize = g_dxWindow->GetScreenSize();
-    ImVec2 start = { ScreenSize.x / 2 - MenuSize.x / 2, ScreenSize.y / 2 - MenuSize.y / 2 };
-    ImGui::SetNextWindowPos(start);
-    ImGui::SetNextWindowSize(MenuSize);
+    auto MenuRect = GetImGuiMenuBounds();
+    ImGui::SetNextWindowPos(MenuRect.Min);
+    ImGui::SetNextWindowSize(MenuRect.GetSize());
     if (!ImGui::Begin("SOCOM", &bShowMenu, 96))
     {
         ImGui::End();
@@ -40,9 +72,16 @@ void Menu::MainMenu()
     auto height = ImGui::GetContentRegionAvail().y;
 
     //  ESP
-    ImGui::Checkbox("ESP", &bESP);
-    if (bESP)
+    ImGui::Checkbox("ESP", &this->bESP);
+    if (this->bESP)
     {
+        ImGui::SameLine();
+        ImGui::Checkbox("##names", &this->bESPName);
+        GUI::Tooltip("NAMES");
+        ImGui::SameLine();
+        ImGui::Checkbox("##snap_lines", &this->bESPSnap);
+        GUI::Tooltip("SNAP LINES");
+
         ImGui::SameLine();
         ImGui::SetCursorPosX(width * .25);
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
@@ -52,8 +91,6 @@ void Menu::MainMenu()
     ImGui::SetCursorPosY(height - ImGui::GetTextLineHeightWithSpacing() * 2);
     if (ImGui::Button("EXIT", ImGui::GetContentRegionAvail()))
     {
-        // disable any enabled patches
-
         //  shutdown
         this->bRunning = false;
     }
@@ -63,8 +100,9 @@ void Menu::MainMenu()
 
 void Menu::SHROUD()
 {
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(g_dxWindow->GetScreenSize());
+    const ImRect& wndw = GetClientScreenBounds();
+    ImGui::SetNextWindowPos(wndw.Min);
+    ImGui::SetNextWindowSize(wndw.GetSize());
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4());
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
     if (!ImGui::Begin("##SHROUDWINDOW", (bool*)true, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs))
@@ -81,10 +119,9 @@ void Menu::SHROUD()
 
 void Menu::HUD()
 {
-    ImVec2 draw_pos = g_dxWindow->GetCloneWindowPos();
-    ImVec2 draw_size = g_dxWindow->GetCloneWindowSize();
-    ImGui::SetNextWindowPos(draw_pos);
-    ImGui::SetNextWindowSize(draw_size);
+    const ImRect& wndw = GetCloneOverlayBounds();
+    ImGui::SetNextWindowPos(wndw.Min);
+    ImGui::SetNextWindowSize(wndw.GetSize());
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
@@ -101,16 +138,9 @@ void Menu::HUD()
 
     ImGuiStyle style = ImGui::GetStyle();
     ImDrawList* pDraw = ImGui::GetWindowDrawList();
-    ImRect screen_rect(draw_pos, draw_pos + draw_size);
-    auto center = screen_rect.GetCenter();
-    auto top_center = ImVec2({ center.x, screen_rect.Min.y });
-
-    std::string text("SOCOM ESP - NIGHTFYRE");
-    ImVec2 szText = ImGui::CalcTextSize(text.c_str());
-    ImVec2 posText = ImVec2(top_center.x - (szText.x * .5f), top_center.y + style.WindowPadding.y);
-    pDraw->AddRectFilled(posText, posText + szText, IM_COL32_BLACK, 1.f);
-    pDraw->AddText(posText, IM_COL32_WHITE, text.c_str());
-
+    auto center = wndw.GetCenter();
+    auto top_center = ImVec2({ center.x, wndw.Min.y });
+    GUI::DrawBGTextCentered(top_center, IM_COL32_WHITE, "SOCOM ESP - NIGHTFYRE", IM_COL32_BLACK, 24.0f);
 
 //
     RenderCache();
@@ -137,26 +167,161 @@ void Menu::RenderCache()
 
     for (auto& obj : cache.render)
     {
+        if (!obj.bAlive)
+            continue;
+
         auto ent_origin = obj.pos;
         auto distance = cache.cameraView.origin().Distance(ent_origin);
+        if (distance > this->mESPDist)
+            continue;
 
         Engine::Vec2 screen;
         Engine::Vec2 screen2;
-        if (!Engine::Tools::ProjectWorldToScreen(ent_origin, cache.cameraView, 60.f, szScreen, &screen))   
+        if (!Engine::Tools::ProjectWorldToScreen(ent_origin, cache.cameraView, 60.f, szScreen, &screen))
             continue;
-        Engine::Tools::WorldToScreen(ent_origin, cache.mvmatrix, szScreen, &screen2);
 
         ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
 
-        char buf_dist[16];
-        sprintf_s(buf_dist, "[%.1fm]", distance);
-        std::string nameDist(buf_dist);
-        std::string nameEnt = obj.name;
-        ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
-        ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
-        ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y);
-        ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 1.5f));
-        pDraw->AddText(posTextName, IM_COL32_WHITE, nameEnt.c_str());
-        pDraw->AddText(posTextDist, IM_COL32_WHITE, nameDist.c_str());
+        if (this->bESPName)
+        {
+            char buf_dist[16];
+            sprintf_s(buf_dist, "[%.1fm]", distance);
+            std::string nameDist(buf_dist);
+            std::string nameEnt = obj.name;
+            ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
+            ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
+            ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y);
+            ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 1.5f));
+            GUI::DrawBorderText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32_WHITE);
+            GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
+        }
+
+        if (this->bESPSnap)
+            GUI::CleanLine(pos, screen_pos, IM_COL32_WHITE);
     }
+}
+
+void GUI::TextCentered(const char* pText)
+{
+    ImVec2 textSize = ImGui::CalcTextSize(pText);
+    ImVec2 windowSize = ImGui::GetWindowSize();
+    ImVec2 textPos = ImVec2((windowSize.x - textSize.x) * 0.5f, (windowSize.y - textSize.y) * 0.5f);
+    ImGui::SetCursorPos(textPos);
+    ImGui::Text("%s", pText);
+}
+
+void GUI::Tooltip(const char* tip)
+{
+    if (!ImGui::IsItemHovered())
+        return;
+
+    ImGui::SetTooltip(tip);
+}
+
+void GUI::DrawText_(const ImVec2& pos, const ImColor& color, const std::string& text, const float& szFont)
+{
+    ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), szFont, pos, color, text.c_str(), text.c_str() + text.size(), 800.f, nullptr);
+}
+
+void GUI::DrawBGText(const ImVec2& pos, const ImColor& color, const std::string& text, const ImColor& background, const float& szFont)
+{
+    auto pFont = ImGui::GetFont();
+    const ImVec2& textSize = ImGui::CalcTextSize(text.c_str());
+    ImRect textRect = ImRect(pos, pos + textSize);
+    if (szFont > 0.f)
+    {
+        const ImVec2& scaledTextSize = ImVec2(textSize.x * szFont / pFont->FontSize, szFont);
+        ImVec2 scaledTextPos = ImVec2(pos.x - (scaledTextSize.x * .5f), pos.y);
+    }
+    ImGui::GetWindowDrawList()->AddRectFilled(textRect.Min, textRect.Max, background);
+    DrawText_(textRect.Min, color, text, szFont);
+}
+
+void GUI::DrawBorderText(const ImVec2& pos, const ImColor& color, const std::string& text, const ImColor& border, const float& szFont)
+{
+    auto pFont = ImGui::GetFont();
+    const ImVec2& textSize = ImGui::CalcTextSize(text.c_str());
+    ImRect textRect = ImRect(pos, pos + textSize);
+    if (szFont > 0.f)
+    {
+        const ImVec2& scaledTextSize = ImVec2(textSize.x * szFont / pFont->FontSize, szFont);
+        ImVec2 scaledTextPos = ImVec2(pos.x - (scaledTextSize.x * .5f), pos.y);
+		textRect = (ImRect(scaledTextPos, scaledTextPos + scaledTextSize));
+    }
+    ImGui::GetWindowDrawList()->AddRect(textRect.Min, textRect.Max, border);
+    DrawText_(textRect.Min, color, text, szFont);
+}
+
+void GUI::DrawTextCentered(const ImVec2& pos, const ImColor& color, const std::string& text, const float& szFont)
+{
+    const ImVec2& textSize = ImGui::CalcTextSize(text.c_str());
+    ImVec2 textPosition = ImVec2(pos.x - (textSize.x * 0.5f), pos.y);
+    if (szFont <= 0.f)
+    {
+        DrawText_(textPosition, color, text, szFont);
+        return;
+    }
+
+    auto pFont = ImGui::GetFont();
+    ImVec2 scaledTextSize = ImVec2(textSize.x * szFont / pFont->FontSize, szFont);
+    ImVec2 scaledTextPos = ImVec2(pos.x - (scaledTextSize.x * .5f), pos.y);
+    DrawText_(scaledTextPos, color, text, szFont);
+}
+
+void GUI::DrawBGTextCentered(const ImVec2& pos, const ImColor& color, const std::string& text, const ImColor& background, const float& szFont)
+{
+    const ImVec2& textSize = ImGui::CalcTextSize(text.c_str());
+    ImVec2 textPosition = ImVec2(pos.x - (textSize.x * 0.5f), pos.y);
+    if (szFont <= 0.f)
+    {
+        DrawBGText(textPosition, color, text, background, szFont);
+        return;
+    }
+
+    auto pFont = ImGui::GetFont();
+    ImVec2 scaledTextSize = ImVec2(textSize.x * szFont / pFont->FontSize, szFont);
+    ImVec2 scaledTextPos = ImVec2(pos.x - (scaledTextSize.x * .5f), pos.y);
+    ImGui::GetWindowDrawList()->AddRectFilled(scaledTextPos, scaledTextPos + scaledTextSize, background);
+    DrawText_(scaledTextPos, color, text, szFont);
+}
+
+void GUI::DrawBorderTextCentered(const ImVec2& pos, const ImColor& color, const std::string& text, const ImColor& border, const float& szFont)
+{
+    const ImVec2& textSize = ImGui::CalcTextSize(text.c_str());
+    ImVec2 textPosition = ImVec2(pos.x - (textSize.x * 0.5f), pos.y);
+    if (szFont <= 0.f)
+    {
+        DrawBorderText(textPosition, color, text, border, szFont);
+        return;
+    }
+
+    auto pFont = ImGui::GetFont();
+    ImVec2 scaledTextSize = ImVec2(textSize.x * szFont / pFont->FontSize, szFont);
+    ImVec2 scaledTextPos = ImVec2(pos.x - (scaledTextSize.x * .5f), pos.y);
+    ImGui::GetWindowDrawList()->AddRect(scaledTextPos, scaledTextPos + scaledTextSize, border);
+    DrawText_(scaledTextPos, color, text, szFont);
+}
+
+void GUI::Line(const ImVec2& posA, const ImVec2& posB, const ImColor& color, const float& thickness)
+{
+    ImGui::GetWindowDrawList()->AddLine(posA, posB, color, thickness);
+}
+
+void GUI::Circle(const ImVec2& pos, const ImColor& color, const float& radius, const float& thickness, const float& segments)
+{
+    ImGui::GetWindowDrawList()->AddCircle(pos, radius, color, segments, thickness);
+}
+
+void GUI::CleanLine(const ImVec2& posA, const ImVec2& posB, const ImColor& color, const float& thickness)
+{
+    Line(posA, posB, ImColor(0.0f, 0.0f, 0.0f, color.Value.w), (thickness + 0.25));
+    Line(posA, posB, ImColor(1.0f, 1.0f, 1.0f, color.Value.w), (thickness + 0.15));
+    Line(posA, posB, color, thickness);
+}
+
+void GUI::CleanCircle(const ImVec2& pos, const ImColor& color, const float& radius, const float& thickness, const float& segments)
+{
+    Circle(pos, ImColor(0.0f, 0.0f, 0.0f, color.Value.w), radius, thickness, segments);
+    Circle(pos, ImColor(1.0f, 1.0f, 1.0f, color.Value.w), radius, thickness, segments);
+    Circle(pos, color, radius, thickness, segments);
 }
