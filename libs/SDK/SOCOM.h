@@ -156,18 +156,64 @@ namespace Engine
 			class CZSeal
 			{
 			public:
-				char							pad_0000[20];				//0x0000
+				__int32							pVTable;					//0x0000
+				char							pad_0004[16];				//0x0004
 				__int32							m_pName;					//0x0014
 				char							pad_0018[4];				//0x0018
 				Vec3							m_relativeLocation;			//0x001C
+				__int32							m_pSealObj;					//0x0028	//	CZSealObject
+				char							pad_002C[154];				//0x0030
+				__int32							m_teamID;					//0x00C8
+				char							pad_00CC[1224];				//0x00CC
+				__int32							m_shotsFired;				//0x0594
+				char							pad_0598[64];				//0x0598
+				float							m_weaponBounce;				//0x05D8
+				float							m_weaponSpread;				//0x05DC
+				char							pad_05E0[36];				//0x05E0
+				float							m_weaponRecoil;				//0x0604
+				float							m_scopeSway;				//0x0608
+				float							m_scopePulse;				//0x060C
+				char							pad_0610[12];				//0x0610
+				float							m_scopeBounce;				//0x061C
+				float							m_scopeRecoil;				//0x0620
+				char							pad_0624[160];				//0x0624
+				__int32							m_PrimaryWeapon;			//0x06C4
+				__int32							m_SecondaryWeapon;			//0x06C8
+				__int32							m_EqSlot1;					//0x06CC
+				__int32							m_EqSlot2;					//0x06D0
+				__int32							m_EqSlot3;					//0x06D4
+				char							pad_06D8[100];				//0x06D8
+				__int32							m_PrimaryAmmoType;			//0x073C
+				__int32							m_SecondaryAmmoType;		//0x0740
+				__int32							m_EqSlot1AmmoType;			//0x0744
+				__int32							m_EqSlot2AmmoType;			//0x0748
+				__int32							m_EqSlot3AmmoType;			//0x074C
+				char							pad_0750[100];				//0x0750
+				__int32							m_PrimaryMags[10];			//0x07B4
+				__int32							m_SecondaryMags[10];		//0x07DC
+				__int32							m_EqSlot1Ammo;				//0x0804
+				char							pad_0808[36];				//0x0808
+				__int32							m_EqSlot2Ammo;				//0x082C
+				char							pad_0830[36];				//0x0830
+				__int32							m_EqSlot3Ammo;				//0x0854
+				char							pad_0858[1440];				//0x0858
+				__int32							m_weaponAUTO;				//0x0DF8
+				__int32							m_weaponRAPID;				//0x0DFC
+				char							pad_0E00[44];				//0x0E00
+				float							m_crosshairSpread;			//0x0E2C
+				float							m_crosshairBloom;			//0x0E30
+				char							pad_0E34[320];				//0x0E34
+				__int32							m_gunHot;					//0x0F74
+				char							pad_0F78[204];				//0x0F78
+				float							m_Health;					//0x1044
 			};
 		}
 
 		namespace Offsets
 		{
-			constexpr auto o_LocalCamera{ 0x415FF0 };	
-			constexpr auto o_LocalSeal{ 0x440C38 };		
-			constexpr auto o_SealArray{ 0x4362E0 };		
+			constexpr auto o_LocalCamera{ 0x415FF0 };	//	r0001: 0x415FF0 : r0004:0x4429B0
+			constexpr auto o_LocalSeal{ 0x440C38 };		//	r0001: 0x440C38 : r0004:0x44D648
+			constexpr auto o_SealArray{ 0x4362E0 };		//	r0001: 0x4362E0 : r0004:0x442CE8
 		}
 
 		namespace Tools

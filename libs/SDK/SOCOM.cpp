@@ -258,7 +258,7 @@ i64_t pcsx2Memory::ReadPSXPointerChain(const i64_t& addr, std::vector<unsigned i
 
 void SOCOM::Update()
 {
-	using namespace Engine::SOCOM1;
+	using namespace Engine::SOCOM2;
 
 	static auto reset = [this](){ this->imCache = SGlobals(); };
 
@@ -309,8 +309,7 @@ void SOCOM::Update()
 	globals.render = players;
 
 	//	GET CAMERA VIEW
-	if (!Tools::GetCameraViewMatrix(globals.cameraView) 
-		|| !Tools::GetModelViewMatrix(globals.mvmatrix))
+	if (!Tools::GetCameraViewMatrix(globals.cameraView))
 		return reset();
 
 	globals.bValid = true;
