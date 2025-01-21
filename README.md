@@ -9,4 +9,12 @@ proof of concept
 # NOTES
 - The ESP is kinda drunken as I have not found the correct FOV value.
 
-![image](https://github.com/user-attachments/assets/12322e7e-bd98-41b1-8c5c-2d818b24eec1)
+## SOCOM 1
+<p align="center">
+<img src="https://github.com/user-attachments/assets/82d26ec1-19ad-47a6-94b2-6624b43be84d">
+</p>
+
+## SOCOM 2
+<p align="center">
+<img src="https://github.com/user-attachments/assets/33478d40-6a0c-4165-aed4-bea8cd617f87">
+</p>
