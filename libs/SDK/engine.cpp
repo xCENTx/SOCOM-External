@@ -158,48 +158,75 @@ namespace Engine
 		}
 	}
 
-	namespace Tools
-	{
-		bool Tools::ProjectWorldToScreen(Vec3 WorldLocation, ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D)
-		{
-			Vec3 cam_pos = Vec3(CameraView.pos.x, CameraView.pos.y, CameraView.pos.z);
-			Vec3 cam_look = Vec3(-CameraView.fwd.x, -CameraView.fwd.y, -CameraView.fwd.z);
-			Vec3 cam_right = Vec3(CameraView.right.x, CameraView.right.y, CameraView.right.z);
-			Vec3 cam_up = Vec3(CameraView.up.x, CameraView.up.y, CameraView.up.z);
+	Vec4 Matrix16::MatrixMultiply(const Vec3& v) const {
+		
+		/// DX
+		return Vec4
+		(
+			m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3],
+			m[4] * v.x + m[5] * v.y + m[6] * v.z + m[7],
+			m[8] * v.x + m[9] * v.y + m[10] * v.z + m[11],
+			m[12] * v.x + m[13] * v.y + m[14] * v.z + m[15]
+		);
 
-			//  get direction or heading
-			Vec3 heading = WorldLocation - cam_pos;
-			float camX = heading.dot(cam_right);
-			float camY = heading.dot(cam_up);
-			float camZ = heading.dot(cam_look);
 
-			//  check if object is behind the camera
-			if (camZ <= 0.f)
-				return false;
-
-			//  apply perspective projection
-			float aspect = szScreen.x / szScreen.y;
-			float fov_radians = tan(fov * 0.5f * (M_PI / 180.f)); // Convert fov to radians and compute scaling factor
-			float pX = camX / (camZ * fov_radians * aspect);
-			float pY = camY / (camZ * fov_radians);
-
-			Vec2 res =
-			{
-				(pX + 1.0f) * 0.5f * szScreen.x,
-				(1.0f - pY) * 0.5f * szScreen.y // Invert Y because screen coordinates are top-down
-			};
-
-			if (res.x <= 0.f || res.y <= 0.0f)
-				return false;
-
-			if (res.x > szScreen.x || res.y > szScreen.y)
-				return false;
-
-			*screen2D = res;
-
-			return true;
-		}
+		/// OpenGL
+		//	return Vec4
+		//	(
+		//		m[0] * v.x + m[4] * v.y + m[8] * v.z + m[12],
+		//		m[1] * v.x + m[5] * v.y + m[9] * v.z + m[13],
+		//		m[2] * v.x + m[6] * v.y + m[10] * v.z + m[14],
+		//		m[3] * v.x + m[7] * v.y + m[11] * v.z + m[15]
+		//	);
 	}
 
-	Vec3 ZViewModel::origin() const { return Vec3(pos.x, pos.y, pos.z); }
+	Vec4 Matrix16::MatrixMultiply(const Vec4& v) const {
+
+		/// DX
+		return Vec4
+		(
+			m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3] * v.w,
+			m[4] * v.x + m[5] * v.y + m[6] * v.z + m[7] * v.w,
+			m[8] * v.x + m[9] * v.y + m[10] * v.z + m[11] * v.w,
+			m[12] * v.x + m[13] * v.y + m[14] * v.z + m[15] * v.w
+		);
+
+
+		/// OpenGL
+		//	return Vec4
+		//	(
+		//		m[0] * v.x + m[4] * v.y + m[8] * v.z + m[12] * v.w,
+		//		m[1] * v.x + m[5] * v.y + m[9] * v.z + m[13] * v.w,
+		//		m[2] * v.x + m[6] * v.y + m[10] * v.z + m[14] * v.w,
+		//		m[3] * v.x + m[7] * v.y + m[11] * v.z + m[15] * v.w
+		//	);
+	}
+
+	Vec4 Matrix4x4::operator*(const Vec4& v) const {
+		return Vec4(
+			m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w,
+			m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z + m[1][3] * v.w,
+			m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * v.w,
+			m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * v.w
+		);
+	}
+
+	Vec4 Matrix4x4::MatrixMultiply(const Vec3& v) const {
+		return Vec4
+		(
+			m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * 1.0f,
+			m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z + m[1][3] * 1.0f,
+			m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * 1.0f,
+			m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * 1.0f
+		);
+	}
+
+	Vec4 Matrix4x4::MatrixMultiply(const Vec4& v) const {
+		return Vec4(
+			m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w,
+			m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z + m[1][3] * v.w,
+			m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * v.w,
+			m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * v.w
+		);
+	}
 }

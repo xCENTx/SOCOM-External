@@ -34,6 +34,9 @@ int main()
 			LastTick = GetTickCount64();
 		}
 
+		//	g_PSXMemory.update();
+		//	g_SOCOM->Update();
+
 		g_dxWindow->CloneUpdate(g_PSXMemory.GetPsxInfo().hWnd);
 		g_dxWindow->Update(g_Menu->GetOverlay());
 

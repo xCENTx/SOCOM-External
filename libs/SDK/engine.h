@@ -67,32 +67,21 @@ namespace Engine
 		void normalize();
 	};
 
-	struct ZViewModel
+	struct Matrix16
 	{
-		Vec4 right;		//	Vector3 : right vector
-		Vec4 up;		//	Vector3 : up vector
-		Vec4 fwd;		//	Vector3 : look vector ( - is forward )
-		Vec4 pos;		//	Vector3 : position
+		float m[16];
 
-		Vec3 origin() const;
+		Vec4 MatrixMultiply(const Vec3& v) const;
+		Vec4 MatrixMultiply(const Vec4& v) const;
 	};
 
-	struct ZIterator
+	struct Matrix4x4
 	{
-		__int32 next;	//	pointer to next position in array
-		__int32 prev;	//	pointer to last position in array
-		__int32 data;	//	pointer to object
-	};
+		float m[4][4];
 
-	struct ZArray
-	{
-		__int32 count{ 0 };	//	objects in array
-		__int32 begin{ 0 };	//	pointer to first object in the array
-		__int32 end{ 0 };	//	pointer to last object in the array
-	};
+		Vec4 operator*(const Vec4& v) const;
 
-	namespace Tools
-	{
-		bool ProjectWorldToScreen(Vec3 WorldLocation, ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D);
-	}
+		Vec4 MatrixMultiply(const Vec3& v) const;
+		Vec4 MatrixMultiply(const Vec4& v) const;
+	};
 }

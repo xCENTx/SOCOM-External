@@ -10,9 +10,9 @@ MARGINS gMargin;
 void DxWindow::Init()
 {
     m_szScreen = ImVec2(GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
-    m_wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"Dx11 External Base", nullptr };
+    m_wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"WC NightFyre Dx11 External Base", nullptr };
     ::RegisterClassEx(&m_wc);
-    m_hwnd = ::CreateWindowW(m_wc.lpszClassName, L"Dx11 External Base", WS_EX_TOPMOST | WS_POPUP, 0, 0, static_cast<int>(m_szScreen.x), static_cast<int>(m_szScreen.y), nullptr, nullptr, m_wc.hInstance, nullptr);
+    m_hwnd = ::CreateWindowW(m_wc.lpszClassName, L"NightFyre Dx11 External Base", WS_EX_TOPMOST | WS_POPUP, static_cast<int>(m_posScreen.x), static_cast<int>(m_posScreen.y), static_cast<int>(m_szScreen.x), static_cast<int>(m_szScreen.y), nullptr, nullptr, m_wc.hInstance, nullptr);
     SetLayeredWindowAttributes(m_hwnd, 0, 255, LWA_ALPHA);
     gMargin = { 0, 0, static_cast<int>(m_szScreen.x), static_cast<int>(m_szScreen.y) };
     DwmExtendFrameIntoClientArea(m_hwnd, &gMargin);
@@ -167,6 +167,7 @@ void DxWindow::Update(SOverlay bind)
         ::DispatchMessage(&msg);
     }
 
+	// @ todo: update dx window to match the cloned window
     ::SetWindowPos(m_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
     ImGui_ImplDX11_NewFrame();
@@ -192,6 +193,15 @@ void DxWindow::Update(SOverlay bind)
 
 void DxWindow::CloneUpdate(HWND window)
 {
+    if (!window)
+    {
+		// clear cloned window position and size
+		m_posClone = ImVec2(0.0f, 0.0f);
+		m_szClone = ImVec2(0.0f, 0.0f);
+        bValidClone &= false;
+        return;
+    }
+		
     RECT clientRect;
     POINT topLeft{};
     POINT bottomRight{};
@@ -204,6 +214,7 @@ void DxWindow::CloneUpdate(HWND window)
     ClientToScreen(window, &bottomRight);
     m_posClone = { float(topLeft.x), float(topLeft.y) };
     m_szClone = { float((bottomRight.x - topLeft.x)), float((bottomRight.y - topLeft.y)) };
+	bValidClone |= true;
 }
 
 LRESULT WINAPI DxWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)

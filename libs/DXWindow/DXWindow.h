@@ -64,8 +64,10 @@ private:
 	ID3D11DeviceContext* m_pd3dDeviceContext{ nullptr };
 	ID3D11RenderTargetView* m_mainRenderTargetView{ nullptr };
 	ImVec2 m_szScreen{ 0.0f, 0.0f };
+	ImVec2 m_posScreen{ 0.0f, 0.0f };
 	ImVec2 m_szClone{ 0.0f, 0.0f };
 	ImVec2 m_posClone{ 0.0f, 0.0f };
+	bool bValidClone{ false };
 
 private:
 	bool CreateDeviceD3D(HWND hWnd);

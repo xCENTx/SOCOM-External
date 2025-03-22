@@ -81,11 +81,72 @@ void Menu::MainMenu()
         ImGui::SameLine();
         ImGui::Checkbox("##snap_lines", &this->bESPSnap);
         GUI::Tooltip("SNAP LINES");
+        ImGui::SameLine();
+        ImGui::Checkbox("##box_2D", &this->bESPBox2D);
+        GUI::Tooltip("2D BOX");
+        ImGui::SameLine();
+        ImGui::Checkbox("##box_health", &this->bESPHealth);
+        GUI::Tooltip("HEALTH");
 
         ImGui::SameLine();
-        ImGui::SetCursorPosX(width * .25);
+        ImGui::SetCursorPosX(width * .5);
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         ImGui::SliderFloat("##ESP_DISTANCE", &mESPDist, 0.0f, 100.f, "%.0f");
+    }
+    
+    if (ImGui::Button("REFILL AMMO"))
+    {
+		Engine::zdb::Patches::RefillAllAmmo();
+    }
+    
+    if (ImGui::Button("FORCE COMPLETE MISSION"))
+    {
+        Engine::zdb::Patches::ForceCompleteMission();
+    }
+
+    if (ImGui::Button("GIVE M79"))
+    {
+        Engine::zdb::Patches::SetWeapon(
+            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_Secondary, // weapon slot
+            Engine::zdb::Enums::EWeapon::EWeapon_P_GL_M79 	    // weapon to give
+        );
+        Engine::zdb::Patches::SetWeapon(
+            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_EqSlot3, // weapon slot
+            Engine::zdb::Enums::EWeapon::EWeapon_EQ_M79HE 	    // weapon to give
+        );
+
+        Engine::zdb::Patches::SetWeaponAmmoType(
+            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_Secondary, // weapon slot
+            Engine::zdb::Enums::EWeaponAmmo::EWeaponAmmo_EMPTY
+        );
+
+        Engine::zdb::Patches::SetWeaponAmmoType(
+            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_EqSlot3, // weapon slot
+            Engine::zdb::Enums::EWeaponAmmo::EWeaponAmmo_M79_HE
+        );
+    }
+    
+    if (ImGui::Button("GIVE EXPLOSIVE BULLETS"))
+    {
+		Engine::zdb::Patches::SetWeaponAmmoType(
+			Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_Primary, // weapon slot
+			Engine::zdb::Enums::EWeaponAmmo::EWeaponAmmo_Satchel                // ammo type
+		);
+    }
+
+    if (ImGui::Button("SET CUSTOM AMMO"))
+    {
+		Engine::zdb::Classes::CZAmmo ammo;
+		ammo.bulletImpactDmg = 1337.f;
+		ammo.stun = 1337.f;
+		ammo.piercing = 1337.f;
+		ammo.explosionDamage = 0.f;
+		ammo.explosionRadius = 0.f;
+
+        Engine::zdb::Patches::SetAmmoProperties(
+            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_Primary, // weapon slot
+            ammo
+        );
     }
 
     ImGui::SetCursorPosY(height - ImGui::GetTextLineHeightWithSpacing() * 2);
@@ -140,7 +201,10 @@ void Menu::HUD()
     ImDrawList* pDraw = ImGui::GetWindowDrawList();
     auto center = wndw.GetCenter();
     auto top_center = ImVec2({ center.x, wndw.Min.y });
+
+#if !_DEBUG
     GUI::DrawBGTextCentered(top_center, IM_COL32_WHITE, "SOCOM ESP - NIGHTFYRE", IM_COL32_BLACK, 24.0f);
+#endif
 
 //
     RenderCache();
@@ -175,17 +239,31 @@ void Menu::RenderCache()
         if (distance > this->mESPDist)
             continue;
 
+        //  calc head pos
+        auto ent_headOrigin = ent_origin;
+		obj.stance == 0 ? ent_headOrigin.y += 20.f : obj.stance == 1 ? ent_headOrigin.y += 14.f : ent_headOrigin.y += 3.0f;
+
+        float mFOV = 60.f / cache.localPlayer.seal.ZoomLevel;
+
         Engine::Vec2 screen;
-        Engine::Vec2 screen2;
-        if (!Engine::Tools::ProjectWorldToScreen(ent_origin, cache.cameraView, 60.f, szScreen, &screen))
+        Engine::Vec2 screenHead;
+        if (!Engine::zdb::Tools::ProjectWorldToScreen(ent_origin, cache.cameraView, mFOV, szScreen, &screen)
+            || !Engine::zdb::Tools::ProjectWorldToScreen(ent_headOrigin, cache.cameraView, mFOV, szScreen, &screenHead))
             continue;
 
         ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
+        ImVec2 head_pos = screen_pos + ImVec2(screenHead.x, screenHead.y);
+        float corner_height = abs(head_pos.y - pos.y);		                                    //	Width
+        float corner_width = corner_height * 0.65;			                                    //	Height
+        ImVec2 pos_box(head_pos.x - (corner_width / 2), head_pos.y);	                        //	Top Left Corner
+        ImRect bbox(pos_box, ImVec2(pos_box.x + corner_width, pos_box.y + corner_height));      //  2d bounding box
 
+
+        //  NAME
         if (this->bESPName)
         {
             char buf_dist[16];
-            sprintf_s(buf_dist, "[%.1fm]", distance);
+            sprintf_s(buf_dist, "[%.0fm]", distance);
             std::string nameDist(buf_dist);
             std::string nameEnt = obj.name;
             ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
@@ -196,8 +274,27 @@ void Menu::RenderCache()
             GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
         }
 
+        //  SNAP
         if (this->bESPSnap)
             GUI::CleanLine(pos, screen_pos, IM_COL32_WHITE);
+        
+        // skip drawing certain visuals if prone
+        if (obj.stance >= 2)
+            continue;
+
+        //  BOX
+        if (this->bESPBox2D) // draw 2d box but skip prone players
+			pDraw->AddRect(bbox.Min, bbox.Max, IM_COL32_WHITE, 0.f, 0, 1.f);
+
+        //	HEALTH
+        if (this->bESPHealth)
+        {
+            ImColor mColHealth(255 - obj.health * 2.55, obj.health * 2.55, 0);					//	health color
+            float heightBarHP = bbox.GetHeight() - (bbox.GetHeight() * (obj.health / 100.f));	//	health bar height
+            auto lBar = ImRect(bbox.Min, ImVec2(bbox.Min.x + 1.f, bbox.Max.y));					//	left healthbar
+            pDraw->AddRect(lBar.Min, lBar.Max, IM_COL32_WHITE);
+            pDraw->AddRect(ImVec2(lBar.Min.x, lBar.Min.y + heightBarHP), lBar.Max, mColHealth);
+        }
     }
 }
 
