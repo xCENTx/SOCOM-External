@@ -81,7 +81,11 @@ namespace Engine
 
 		Vec4 operator*(const Vec4& v) const;
 
+		Vec3 Translate() const; // returns origin
+
 		Vec4 MatrixMultiply(const Vec3& v) const;
 		Vec4 MatrixMultiply(const Vec4& v) const;
+		Vec4 TransformPoint(const Vec3& v) const;
+		Vec4 TransformPoint(const Vec4& v) const;
 	};
 }
