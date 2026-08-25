@@ -1,6 +1,7 @@
 #include "Menu.h"
 
 int mainthread();
+int emuThread();
 
 static int LastTick = 0;
 int main()
@@ -17,6 +18,7 @@ int main()
 
 	//	Initialize Background Thread
 	std::thread wcw(mainthread);
+	std::thread ecw(emuThread);
 
 	while (g_Menu->bRunning)
 	{
@@ -45,6 +47,7 @@ int main()
 	}
 
 	wcw.join();
+	ecw.join();
 
 	g_dxWindow->Shutdown();
 	g_SOCOM->ShutDown();
@@ -56,10 +59,23 @@ int mainthread()
 {
 	while (g_Menu->bRunning)
 	{
-		g_PSXMemory.update();
 		g_SOCOM->Update();
 
 		std::this_thread::sleep_for(1ms);
+		std::this_thread::yield();
+	}
+
+	return EXIT_SUCCESS;
+}
+
+int emuThread()
+{
+
+	while (g_Menu->bRunning)
+	{
+		g_PSXMemory.update();
+
+		std::this_thread::sleep_for(100ms);
 		std::this_thread::yield();
 	}
 
