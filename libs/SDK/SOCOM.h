@@ -309,6 +309,41 @@ namespace Engine
 				i32_t m_full_frustum_points;    //0x006C
 			};    //Size: 0x0070
 
+			struct tag_CAMERA_PARAMS
+			{
+			public:
+				Vec4 m_quat; //0x0000
+				Vec4 m_fog_color; //0x0010
+				float m_hfov; //0x0020
+				float m_vfov; //0x0024
+				float m_near_plane; //0x0028
+				float m_mid_plane; //0x002C
+				float m_far_plane; //0x0030
+				Vec3 m_px_fog_color; //0x0034
+				Vec3 m_nx_fog_color; //0x0040
+				Vec3 m_pz_fog_color; //0x004C
+				Vec3 m_nz_fog_color; //0x0058
+				float m_fog_near; //0x0064
+				float m_fog_far; //0x0068
+				float m_fog_mid; //0x006C
+				float m_fogA; //0x0070
+				float m_fogB; //0x0074
+				float m_fog_density; //0x0078
+				float m_fog_top; //0x007C
+				float m_fog_bottom; //0x0080
+				float m_landmark_fog_top; //0x0084
+				float m_landmark_fog_bottom; //0x0088
+				unsigned int m_fog_flags; //0x008C
+			}; //Size: 0x0090
+
+			struct tag_RECT
+			{
+				int left; //0x0000
+				int top; //0x0004
+				int right; //0x0008
+				int bottom; //0x000C
+			}; //Size: 0x0010
+
 			struct tag_ZCAM_MTX_SET
 			{
 				Matrix4x4 mtxWorldToView;    //0x0000
@@ -385,36 +420,27 @@ namespace Engine
 			class zdb_CCamera
 			{
 			public:
-				Matrix4x4						modelView;					//0x0000
-				char							pad_0040[168];				//0x0040
-				float							N000008F8;					//0x00E8
-				float							N000006F3;					//0x00EC
-				float							N000008FA;					//0x00F0
-				char							pad_00F4[92];				//0x00F4
-				SCameraFrustrum					frustrum;					//0x0150
-				char							pad_01C0[16];				//0x01C0
-				float							N00000709;					//0x01D0
-				float							N00000926;					//0x01D4
-				char							pad_01D8[184];				//0x01D8
-				float							N00000721;					//0x0290
-				char							pad_0294[44];				//0x0294
-				tag_ZCAM_MTX_SET				m_mtxSet;					//0x02C0
-				unsigned int					N000019DF;					//0x03C0
-				char							pad_03C4[12];				//0x03C4
-				ZCAM_CLIP_DATA					m_ClipSet;					//0x03D0
-				float							N00001A08;					//0x0440
-				float							N000019E2;					//0x0444
-				float							N00001A0A;					//0x0448
-				float							N000019E3;					//0x044C
-				float							N00001A0C;					//0x0450
-				float							N000019E4;					//0x0454
-				char							pad_0458[24];				//0x0458
-				float							N00001A13;					//0x0470
-				float							N000019E9;					//0x0474
-				char							pad_0478[40];				//0x0478
-				float							N00001A1F;					//0x04A0
-				float							N000019EF;					//0x04A4
-				char							pad_04A8[756];				//0x04A8
+				Matrix4x4							modelView;					//0x0000
+				unsigned char						pad_0040[128];				//0x0040
+				tag_CAMERA_PARAMS					m_camera_params;			//0x00C0
+				Vec3								mFrustrum[3];				//0x0150
+				Vec3								mFullFrustrum[6];			//0x0174
+				int									mFullFrustrumPoints;		//0x01BC
+				Vec2								mSin;						//0x01C0
+				Vec2								mCos;						//0x01C8
+				Vec2								mTan;						//0x01D0
+				Vec2								mCot;						//0x01D8
+				char								pad_01E0[224];				//0x01E0
+				tag_ZCAM_MTX_SET					m_mtxSet;					//0x02C0
+				uint16_t							m_scratch;					//0x03C0
+				char								pad_03C2[14];				//0x03C2
+				ZCAM_CLIP_DATA						m_ClipSet;					//0x03D0
+				Vec2								m_screenAspect;				//0x0440
+				Vec2								m_screenCenter;				//0x0448
+				Vec2								m_screenOffset;				//0x0450
+				tag_RECT							m_screen;					//0x0458
+				Vec2								m_screenConstant;			//0x0468
+				char								pad_0470[64];				//0x0470
 			};    //Size: 0x079C
 
 			class CZSealObject
@@ -536,6 +562,7 @@ namespace Engine
 			bool GetCameraMatrixSet(Structs::tag_ZCAM_MTX_SET& mtxSet);
 			bool GetCameraViewMatrix(Structs::ZViewModel& CameraView); 
 			bool GetCameraModelViewMatrix(Matrix16& ModelView);
+			bool GetCamera(Classes::zdb_CCamera& pCamera, i64_t* pAddr);
 			bool GetLocalSeal(Classes::CZSealBody& pSeal, i64_t* pAddr);
 			bool GetPlayers(std::vector<Classes::CZSealBody>* players);
 			bool GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr);
@@ -543,7 +570,10 @@ namespace Engine
 			std::string GetAmmoName(const Enums::EWeaponAmmo& ammo);
 
 			/* RENDER */
-			bool ProjectWorldToScreen(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D);	
+			bool WorldToScreen(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out);
+			bool ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D);
+			bool ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out);
+			bool ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out);
 		}
 
 		namespace Patches
@@ -599,9 +629,7 @@ public:
 		SGame game;
 		SLocalPlayer localPlayer;
 		std::vector<SImGuiPlayer> render;
-		Engine::Matrix16 mvmatrix;
-		Engine::zdb::Structs::ZViewModel cameraView;
-		Engine::zdb::Structs::tag_ZCAM_MTX_SET mtxSet;
+		Engine::zdb::Classes::zdb_CCamera camera;
 	};
 
 public:

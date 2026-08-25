@@ -68,6 +68,21 @@ namespace Engine
 				return true;
 			}
 
+			bool GetCamera(Classes::zdb_CCamera& camera)
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return false;
+
+				auto pCamera = g_PSXMemory.Read<__int32>(eemem + Offsets::gCamera);
+				if (!pCamera || pCamera == Offsets::gCamera)
+					return false;
+
+				camera = g_PSXMemory.Read<Classes::zdb_CCamera>(eemem + pCamera);
+				
+				return true;
+			}
+
 			bool GetLocalSeal(Classes::CZSealBody& seal, i64_t* pSealAddr)
 			{
 				//	get eemem
@@ -188,7 +203,52 @@ namespace Engine
 
 
 			/* RENDER */
-			bool ProjectWorldToScreen(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D)
+
+			/* */
+			bool WorldToScreen(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out)
+			{
+				/* transform world point to view space */
+				auto view = camera.m_mtxSet.mtxWorldToView.TransformPoint(worldLocation); // TransformPoint({ worldLocation.x, worldLocation.y, worldLocation.z, 1.f }, camera.m_mtxSet.mtxWorldToView);
+
+				/* get native screen space (GS) */
+				auto gs = camera.m_mtxSet.mtxViewToScreen.TransformPoint(view); // TransformPoint(view, camera.m_mtxSet.mtxViewToScreen);
+
+				/* check if behind camera */
+				if (gs.w <= 0.001f)
+					return false;
+
+				float gsX = gs.x / gs.w;
+				float gsY = gs.y / gs.w;
+
+				float nativeWidth = camera.m_screen.right - camera.m_screen.left;
+				float nativeHeight = camera.m_screen.bottom - camera.m_screen.top;
+
+				/* convert native ps2 viewport to normalized [0, 1] */
+				float u = (gsX - camera.m_screen.left) / nativeWidth;
+				float v = (gsY - camera.m_screen.top) / nativeHeight;
+
+				/* scale */
+				Vec2 result =
+				{
+					u * szScreen.x,
+					v * szScreen.y
+				};
+
+				if (result.x < 0.0f ||
+					result.y < 0.0f ||
+					result.x > szScreen.x ||
+					result.y > szScreen.y)
+				{
+					return false;
+				}
+
+				*out = result;
+
+				return true;
+			}
+
+			/* */
+			bool ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D)
 			{
 				Vec3 cam_pos = Vec3(CameraView.pos.x, CameraView.pos.y, CameraView.pos.z);
 				Vec3 cam_look = Vec3(-CameraView.fwd.x, -CameraView.fwd.y, -CameraView.fwd.z);
@@ -205,11 +265,17 @@ namespace Engine
 				if (camZ <= 0.f)
 					return false;
 
-				//  apply perspective projection
+				///  apply perspective projection [this was a custom method based on static input fov]
 				float aspect = szScreen.x / szScreen.y;
 				float fov_radians = tan(fov * 0.5f * (M_PI / 180.f)); // Convert fov to radians and compute scaling factor
 				float pX = camX / (camZ * fov_radians * aspect);
 				float pY = camY / (camZ * fov_radians);
+
+				/// apply perspective projection using camera values in class
+				//	float tanHalfHFov = 0.611;
+				//	float tanHalfVFov = 0.428;    
+				//	float pX = camX / (camZ * tanHalfHFov);
+				//	float pY = camY / (camZ * tanHalfVFov);
 
 				Vec2 res =
 				{
@@ -217,14 +283,89 @@ namespace Engine
 					(1.0f - pY) * 0.5f * szScreen.y // Invert Y because screen coordinates are top-down
 				};
 
-				if (res.x <= 0.f || res.y <= 0.0f)
-					return false;
-
-				if (res.x > szScreen.x || res.y > szScreen.y)
+				if (res.x <= 0.f ||
+					res.y <= 0.0f ||
+					res.x > szScreen.x ||
+					res.y > szScreen.y)
 					return false;
 
 				*screen2D = res;
 
+				return true;
+			}
+			
+			/* */
+			bool ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out)
+			{
+				Classes::zdb_CCamera camera;
+				if (!Tools::GetCamera(camera))
+					return false;
+
+				return WorldToScreen(worldLocation, camera, szScreen, out);
+			}
+
+			/* */
+			bool ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out)
+			{
+				//
+				// World -> View
+				//
+				Vec4 WorldLocation =
+				{
+					world.x,
+					world.y,
+					world.z,
+					1.0f
+				};
+				Vec4 view = worldToView.TransformPoint(WorldLocation); // TransformPoint(WorldLocation, worldToView);
+
+				//
+				// View -> native PS2 screen space
+				//
+				Vec4 gs = viewToScreen.TransformPoint(view); // TransformPoint(view, viewToScreen);
+
+				if (gs.w <= 0.001f)
+					return false;
+
+				float gsX = gs.x / gs.w;
+				float gsY = gs.y / gs.w;
+
+				//
+				// Camera's hardcoded native viewport:
+				//
+				constexpr float left = 1728.0f;
+				constexpr float top = 1824.0f;
+				constexpr float right = 2368.0f;
+				constexpr float bottom = 2272.0f;
+
+				constexpr float nativeWidth = right - left;    // 640
+				constexpr float nativeHeight = bottom - top;    // 448
+
+				//
+				// Convert native PS2 viewport -> normalized [0, 1]
+				//
+				float u = (gsX - left) / nativeWidth;
+				float v = (gsY - top) / nativeHeight;
+
+				//
+				// PCSX2 is currently set to Stretch, so the complete native
+				// image is stretched over the entire ImGui/output area.
+				//
+				Vec2 result =
+				{
+					u * screenSize.x,
+					v * screenSize.y
+				};
+
+				if (result.x < 0.0f ||
+					result.y < 0.0f ||
+					result.x > screenSize.x ||
+					result.y > screenSize.y)
+				{
+					return false;
+				}
+
+				*out = result;
 				return true;
 			}
 		}
@@ -623,6 +764,10 @@ void SOCOM::Update()
 	if (!g_PSXMemory.ReadString(eemem + localSeal.pName, player.name, 32))
 		return reset();
 
+	// GET CAMERA
+	if (!Tools::GetCamera(globals.camera))
+		return reset();
+
 	//	GET PLAYERS
 	std::vector<SImGuiPlayer> players;
 	std::vector<Classes::CZSealBody> seals;
@@ -650,14 +795,6 @@ void SOCOM::Update()
 	game.bInGame = seals.size() > 0;
 	game.playerCount = players.size();
 	globals.render = players;
-
-	//	GET CAMERA VIEW
-	if (!Tools::GetCameraViewMatrix(globals.cameraView))
-		return reset();
-
-	//	GET CAMERA MATRIX
-	if (!Tools::GetCameraMatrixSet(globals.mtxSet))
-		return reset();
 
 	globals.bValid = true;
 	imCache = globals;
