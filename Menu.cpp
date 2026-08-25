@@ -235,7 +235,7 @@ void Menu::RenderCache()
             continue;
 
         auto ent_origin = obj.pos;
-        auto distance = cache.cameraView.origin().Distance(ent_origin);
+        auto distance = cache.camera.modelView.Translate().Distance(ent_origin);
         if (distance > this->mESPDist)
             continue;
 
@@ -247,8 +247,9 @@ void Menu::RenderCache()
 
         Engine::Vec2 screen;
         Engine::Vec2 screenHead;
-        if (!Engine::zdb::Tools::ProjectWorldToScreen(ent_origin, cache.cameraView, mFOV, szScreen, &screen)
-            || !Engine::zdb::Tools::ProjectWorldToScreen(ent_headOrigin, cache.cameraView, mFOV, szScreen, &screenHead))
+        if (Engine::zdb::Tools::WorldToScreen(ent_origin, cache.camera, szScreen, &screen) == false ||
+            Engine::zdb::Tools::WorldToScreen(ent_headOrigin, cache.camera, szScreen, &screenHead) == false
+            )
             continue;
 
         ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
