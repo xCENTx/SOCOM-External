@@ -208,10 +208,10 @@ namespace Engine
 			bool WorldToScreen(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out)
 			{
 				/* transform world point to view space */
-				auto view = camera.m_mtxSet.mtxWorldToView.TransformPoint(worldLocation); // TransformPoint({ worldLocation.x, worldLocation.y, worldLocation.z, 1.f }, camera.m_mtxSet.mtxWorldToView);
+				auto view = camera.m_mtxSet.mtxWorldToView.TransformPoint(worldLocation);
 
 				/* get native screen space (GS) */
-				auto gs = camera.m_mtxSet.mtxViewToScreen.TransformPoint(view); // TransformPoint(view, camera.m_mtxSet.mtxViewToScreen);
+				auto gs = camera.m_mtxSet.mtxViewToScreen.TransformPoint(view);
 
 				/* check if behind camera */
 				if (gs.w <= 0.001f)
@@ -764,10 +764,6 @@ void SOCOM::Update()
 	if (!g_PSXMemory.ReadString(eemem + localSeal.pName, player.name, 32))
 		return reset();
 
-	// GET CAMERA
-	if (!Tools::GetCamera(globals.camera))
-		return reset();
-
 	//	GET PLAYERS
 	std::vector<SImGuiPlayer> players;
 	std::vector<Classes::CZSealBody> seals;
@@ -792,9 +788,14 @@ void SOCOM::Update()
 			players.push_back(imPlayer);
 		}
 	}
-	game.bInGame = seals.size() > 0;
+
+	game.bInGame = seals.size() > 1;
 	game.playerCount = players.size();
 	globals.render = players;
+
+	// GET CAMERA
+	if (!Tools::GetCamera(globals.camera))
+		return reset();
 
 	globals.bValid = true;
 	imCache = globals;

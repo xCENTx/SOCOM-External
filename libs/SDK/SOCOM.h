@@ -420,27 +420,27 @@ namespace Engine
 			class zdb_CCamera
 			{
 			public:
-				Matrix4x4							modelView;					//0x0000
-				unsigned char						pad_0040[128];				//0x0040
-				tag_CAMERA_PARAMS					m_camera_params;			//0x00C0
-				Vec3								mFrustrum[3];				//0x0150
-				Vec3								mFullFrustrum[6];			//0x0174
-				int									mFullFrustrumPoints;		//0x01BC
-				Vec2								mSin;						//0x01C0
-				Vec2								mCos;						//0x01C8
-				Vec2								mTan;						//0x01D0
-				Vec2								mCot;						//0x01D8
-				char								pad_01E0[224];				//0x01E0
-				tag_ZCAM_MTX_SET					m_mtxSet;					//0x02C0
-				uint16_t							m_scratch;					//0x03C0
-				char								pad_03C2[14];				//0x03C2
-				ZCAM_CLIP_DATA						m_ClipSet;					//0x03D0
-				Vec2								m_screenAspect;				//0x0440
-				Vec2								m_screenCenter;				//0x0448
-				Vec2								m_screenOffset;				//0x0450
-				tag_RECT							m_screen;					//0x0458
-				Vec2								m_screenConstant;			//0x0468
-				char								pad_0470[64];				//0x0470
+				Matrix4x4						modelView;					//0x0000
+				unsigned char					pad_0040[128];				//0x0040
+				tag_CAMERA_PARAMS				m_camera_params;			//0x00C0
+				Vec3							mFrustrum[3];				//0x0150
+				Vec3							mFullFrustrum[6];			//0x0174
+				int								mFullFrustrumPoints;		//0x01BC
+				Vec2							mSin;						//0x01C0
+				Vec2							mCos;						//0x01C8
+				Vec2							mTan;						//0x01D0
+				Vec2							mCot;						//0x01D8
+				char							pad_01E0[224];				//0x01E0
+				tag_ZCAM_MTX_SET				m_mtxSet;					//0x02C0
+				uint16_t						m_scratch;					//0x03C0
+				char							pad_03C2[14];				//0x03C2
+				ZCAM_CLIP_DATA					m_ClipSet;					//0x03D0
+				Vec2							m_screenAspect;				//0x0440
+				Vec2							m_screenCenter;				//0x0448
+				Vec2							m_screenOffset;				//0x0450
+				tag_RECT						m_screen;					//0x0458
+				Vec2							m_screenConstant;			//0x0468
+				char							pad_0470[64];				//0x0470
 			};    //Size: 0x079C
 
 			class CZSealObject
@@ -562,7 +562,7 @@ namespace Engine
 			bool GetCameraMatrixSet(Structs::tag_ZCAM_MTX_SET& mtxSet);
 			bool GetCameraViewMatrix(Structs::ZViewModel& CameraView); 
 			bool GetCameraModelViewMatrix(Matrix16& ModelView);
-			bool GetCamera(Classes::zdb_CCamera& pCamera, i64_t* pAddr);
+			bool GetCamera(Classes::zdb_CCamera& pCamera);
 			bool GetLocalSeal(Classes::CZSealBody& pSeal, i64_t* pAddr);
 			bool GetPlayers(std::vector<Classes::CZSealBody>* players);
 			bool GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr);

@@ -202,11 +202,6 @@ void Menu::HUD()
     auto center = wndw.GetCenter();
     auto top_center = ImVec2({ center.x, wndw.Min.y });
 
-#if !_DEBUG
-    GUI::DrawBGTextCentered(top_center, IM_COL32_WHITE, "SOCOM ESP - NIGHTFYRE", IM_COL32_BLACK, 24.0f);
-#endif
-
-//
     RenderCache();
 
     ImGui::End();
