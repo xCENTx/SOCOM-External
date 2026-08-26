@@ -1,4 +1,4 @@
-# SOCOM-ESP
+# SOCOM-EXTERNAL
 proof of concept
 
 <p align="center">
