@@ -76,6 +76,9 @@ void Menu::MainMenu()
     if (this->bESP)
     {
         ImGui::SameLine();
+        ImGui::Checkbox("##render_pickups", &this->bESPPickups);
+        GUI::Tooltip("PICKUPS");
+        ImGui::SameLine();
         ImGui::Checkbox("##names", &this->bESPName);
         GUI::Tooltip("NAMES");
         ImGui::SameLine();
@@ -213,37 +216,36 @@ void Menu::UpdateOverlayViewState(bool bState) { elements.bIsShown = bState; }
 
 void Menu::RenderCache()
 {
-
-    auto& cache = g_SOCOM->imCache;
+    SOCOM::SGlobalSnapshot cache{};
+    {
+        std::lock_guard<std::mutex> lock(g_SOCOM->m_cacheMutex);
+        cache = g_SOCOM->m_cache;
+    } // release lock
     ImVec2 screen_pos = g_dxWindow->GetCloneWindowPos();
     ImVec2 screen_size = g_dxWindow->GetCloneWindowSize();
     ImRect screen_rect(screen_pos, screen_pos + screen_size);
     ImVec2 screen_center = screen_rect.GetCenter();
     ImDrawList* pDraw = ImGui::GetWindowDrawList();
-
-    // 
     Engine::Vec2 szScreen = { screen_size.x , screen_size.y };
 
-    for (auto& obj : cache.render)
+    for (auto& obj : cache.m_players)
     {
-        if (!obj.bAlive)
+        if (!obj.m_bAlive)
             continue;
 
-        auto ent_origin = obj.pos;
-        auto distance = cache.camera.modelView.Translate().Distance(ent_origin);
+        auto ent_origin = obj.m_pos;
+        auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
         if (distance > this->mESPDist)
             continue;
 
         //  calc head pos
         auto ent_headOrigin = ent_origin;
-		obj.stance == 0 ? ent_headOrigin.y += 20.f : obj.stance == 1 ? ent_headOrigin.y += 14.f : ent_headOrigin.y += 3.0f;
-
-        float mFOV = 60.f / cache.localPlayer.seal.ZoomLevel;
+		obj.m_stance == 0 ? ent_headOrigin.y += 20.f : obj.m_stance == 1 ? ent_headOrigin.y += 14.f : ent_headOrigin.y += 3.0f;
 
         Engine::Vec2 screen;
         Engine::Vec2 screenHead;
-        if (Engine::zdb::Tools::WorldToScreen(ent_origin, cache.camera, szScreen, &screen) == false ||
-            Engine::zdb::Tools::WorldToScreen(ent_headOrigin, cache.camera, szScreen, &screenHead) == false
+        if (Engine::zdb::Tools::WorldToScreen(ent_origin, cache.m_camera, szScreen, &screen) == false ||
+            Engine::zdb::Tools::WorldToScreen(ent_headOrigin, cache.m_camera, szScreen, &screenHead) == false
             )
             continue;
 
@@ -254,28 +256,12 @@ void Menu::RenderCache()
         ImVec2 pos_box(head_pos.x - (corner_width / 2), head_pos.y);	                        //	Top Left Corner
         ImRect bbox(pos_box, ImVec2(pos_box.x + corner_width, pos_box.y + corner_height));      //  2d bounding box
 
-
-        //  NAME
-        if (this->bESPName)
-        {
-            char buf_dist[16];
-            sprintf_s(buf_dist, "[%.0fm]", distance);
-            std::string nameDist(buf_dist);
-            std::string nameEnt = obj.name;
-            ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
-            ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
-            ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y);
-            ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 1.5f));
-            GUI::DrawBorderText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32_WHITE);
-            GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
-        }
-
         //  SNAP
         if (this->bESPSnap)
-            GUI::CleanLine(pos, screen_pos, IM_COL32_WHITE);
+            GUI::CleanLine(pos, screen_center, IM_COL32_WHITE);
         
         // skip drawing certain visuals if prone
-        if (obj.stance >= 2)
+        if (obj.m_stance >= 2)
             continue;
 
         //  BOX
@@ -285,11 +271,62 @@ void Menu::RenderCache()
         //	HEALTH
         if (this->bESPHealth)
         {
-            ImColor mColHealth(255 - obj.health * 2.55, obj.health * 2.55, 0);					//	health color
-            float heightBarHP = bbox.GetHeight() - (bbox.GetHeight() * (obj.health / 100.f));	//	health bar height
+            ImColor mColHealth(255 - obj.m_health * 2.55, obj.m_health * 2.55, 0);					//	health color
+            float heightBarHP = bbox.GetHeight() - (bbox.GetHeight() * (obj.m_health / 100.f));	//	health bar height
             auto lBar = ImRect(bbox.Min, ImVec2(bbox.Min.x + 1.f, bbox.Max.y));					//	left healthbar
             pDraw->AddRect(lBar.Min, lBar.Max, IM_COL32_WHITE);
             pDraw->AddRect(ImVec2(lBar.Min.x, lBar.Min.y + heightBarHP), lBar.Max, mColHealth);
+        }
+
+        //  NAME
+        if (this->bESPName)
+        {
+            char buf_dist[16];
+            sprintf_s(buf_dist, "[%.0fm]", distance);
+            std::string nameDist(buf_dist);
+            std::string nameEnt = obj.m_name;
+            ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
+            ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
+            ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y);
+            ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 1.5f));
+            GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(10, 10, 10, 100));
+            GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
+        }
+    }
+
+    if (this->bESPPickups == false)
+        return;
+
+    for (auto& obj : cache.m_pickups)
+    {
+        auto ent_origin = obj.m_pos;
+        auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
+        if (distance > this->mESPDist)
+            continue;
+
+        Engine::Vec2 screen;
+        if (Engine::zdb::Tools::WorldToScreen(ent_origin, cache.m_camera, szScreen, &screen) == false)
+            continue;
+
+        ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
+
+        //  SNAP
+        if (this->bESPSnap)
+            GUI::CleanLine(pos, screen_center, IM_COL32_WHITE);
+
+        //  NAME
+        if (this->bESPName)
+        {
+            char buf_dist[16];
+            sprintf_s(buf_dist, "[%.0fm]", distance);
+            std::string nameDist(buf_dist);
+            std::string nameEnt = obj.m_name;
+            ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
+            ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
+            ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y - (szTextName.y * 0.5f));
+            ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 0.5f));
+            GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
+            GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(10, 10, 10, 100));
         }
     }
 }

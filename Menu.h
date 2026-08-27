@@ -17,6 +17,7 @@ public:	//	visuals
 	bool bESPSnap{ false };
 	bool bESPHealth{ false };
 	bool bESPBox2D{ false };
+	bool bESPPickups{ false };
 	float mESPDist{ 100.f };
 
 public:
