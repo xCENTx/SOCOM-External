@@ -165,6 +165,42 @@ namespace Engine
 				return true;
 			}
 
+			bool GetPickups(std::vector<Classes::CPickup>& pickups)
+			{
+				std::vector<Classes::CPickup> container;
+
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return false;
+
+				auto pickupArray = g_PSXMemory.Read<Structs::ZArray>(eemem + Offsets::gPickups);
+				if (pickupArray.count <= 0 || pickupArray.begin <= 0 || pickupArray.end <= 0)
+					return false;
+
+				auto it = g_PSXMemory.Read<Structs::ZIterator>(eemem + pickupArray.begin);
+				auto end = g_PSXMemory.Read<Structs::ZIterator>(it.prev);
+				do
+				{
+					auto data = it.data;
+					if (data > 0)
+					{
+						auto pickup = g_PSXMemory.Read<Classes::CPickup>(eemem + data);
+						if (pickup.pNode && pickup.pData)
+							container.push_back(pickup);
+					}
+
+					it = g_PSXMemory.Read<Structs::ZIterator>(eemem + it.next);
+				
+				} while (it.data != end.data);
+
+				if (container.empty())
+					return false;
+
+				pickups = std::move(container);
+				
+				return true;
+			}
+
 			std::string GetWeaponName(const Enums::EWeapon& weapon)
 			{
 				std::string result = "";
@@ -742,63 +778,103 @@ void SOCOM::Update()
 {
 	using namespace Engine::zdb;
 
-	static auto reset = [this](){ this->imCache = SGlobals(); };
+	static auto reset = [this](const char* reason) 
+	{ 
+		{
+			std::lock_guard<std::mutex> lock(this->m_cacheMutex);
+			this->m_cache = SGlobalSnapshot();
+		} // free lock
+		printf("[!] SOCOM::Update - reset `%s`\n", reason);
+	};
 
-	SGlobals globals;
-	auto& game = globals.game;
-	auto& player = globals.localPlayer;
+	SGlobalSnapshot globals;
+	auto& game = globals.m_ctx;
+	auto& player = globals.m_localPlayer;
 
 	__int64 eemem = g_PSXMemory.GetEEMemory();
 	if (!eemem)
-		return reset();
+		return reset("failed to obtain eemem");
 
 	//	GET LOCAL PLAYER
 	auto pLocalPlayer = g_PSXMemory.Read<__int32>(eemem + Offsets::gLocalSeal);;
 	if (!pLocalPlayer)
-		return reset();
+		return reset("failed to obtain local player");
 
 	auto localSeal = g_PSXMemory.Read<Classes::CZSealBody>(eemem + pLocalPlayer);
-	player.pAddr = pLocalPlayer;
-	player.pos = localSeal.origin;
-	player.seal = localSeal;
-	if (!g_PSXMemory.ReadString(eemem + localSeal.pName, player.name, 32))
-		return reset();
+	player.m_RVA = pLocalPlayer;
+	player.m_pos = localSeal.origin;
+	player.m_seal = localSeal;
+	if (!g_PSXMemory.ReadString(eemem + localSeal.pName, player.m_name, 32))
+		return reset("failed to read local player name");
 
 	//	GET PLAYERS
-	std::vector<SImGuiPlayer> players;
+	std::vector<SImGuiPlayer> imPlayers;
 	std::vector<Classes::CZSealBody> seals;
 	if (Tools::GetPlayers(&seals))
 	{
-		players.reserve(seals.size());
+		imPlayers.reserve(seals.size());
 		for (auto& ent : seals)
 		{
-			SImGuiPlayer imPlayer; 
+			SImGuiPlayer imPlayer;
 
 			if (ent.pName == localSeal.pName)
 				continue;	//	skip local player
 
-			imPlayer.pos = ent.origin;
-			imPlayer.health = ent.Health * 100.f;
-			imPlayer.bAlive = (imPlayer.health > 0.f);
-			imPlayer.stance = ent.Stance;
-
-			if (!g_PSXMemory.ReadString(eemem + ent.pName, imPlayer.name, 32))
+			if (!g_PSXMemory.ReadString(eemem + ent.pName, imPlayer.m_name, 32))
 				continue;
 
-			players.push_back(imPlayer);
+			imPlayer.m_pos = ent.origin;
+			imPlayer.m_health = ent.Health * 100.f;
+			imPlayer.m_bAlive = (imPlayer.m_health > 0.f);
+			imPlayer.m_stance = ent.Stance;
+			imPlayer.m_class = ent;
+
+			imPlayers.push_back(imPlayer);
 		}
 	}
 
-	game.bInGame = seals.size() > 1;
-	game.playerCount = players.size();
-	globals.render = players;
+	// GET PICKUPS
+	std::vector<SImGuiPickup> imPickups;
+	std::vector<Classes::CPickup> pickups;
+	if (Tools::GetPickups(pickups))
+	{
+		imPickups.reserve(pickups.size());
+		for (auto& pickup : pickups)
+		{
+			SImGuiPickup imPickup;
+
+			auto pName = g_PSXMemory.Read<__int32>(eemem + (pickup.pNode + 0x90));
+			if (!pName)
+				continue;
+
+			if (!g_PSXMemory.ReadString(eemem + pName, imPickup.m_name))
+				continue;
+
+			auto model_matrix = g_PSXMemory.Read<Engine::Matrix4x4>(eemem + pickup.pNode);
+
+			imPickup.m_pos = model_matrix.Translate();
+			imPickup.m_class = pickup;
+
+			imPickups.push_back(imPickup);
+		}
+
+	}
+
+	game.m_bInGame = seals.size() > 1;
+	game.m_playerCount = imPlayers.size();
+	game.m_pickupCount = imPickups.size();
+	globals.m_players = std::move(imPlayers);
+	globals.m_pickups = std::move(imPickups);
 
 	// GET CAMERA
-	if (!Tools::GetCamera(globals.camera))
-		return reset();
+	if (!Tools::GetCamera(globals.m_camera))
+		return reset("failed to obtain camera");
 
-	globals.bValid = true;
-	imCache = globals;
+	{
+		std::lock_guard<std::mutex> lock(this->m_cacheMutex);
+		this->m_cache = std::move(globals);
+	} // free lock
+	globals.m_bValid = true;
 }
 
 void SOCOM::ShutDown()
