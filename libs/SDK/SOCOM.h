@@ -142,6 +142,7 @@ namespace Engine
 			constexpr auto gEntityArray{ 0x4D46A0 };	//	black label
 			constexpr auto gMission{ 0x4D4880 };		//	black label
 			constexpr auto gCamera{ 0x51E778 };			//	black label
+			constexpr auto gPickups{ 0x51E970 };		//	black label - ZArray<CPickup*>
 		}
 
 		namespace Enums
@@ -295,6 +296,14 @@ namespace Engine
 
 				EWeaponAmmo_Satchel = AMMO_Satchel,
 				EWeaponAmmo_2xAmmo = AMMO_2xAmmo,
+			};
+
+			enum EPickupType : __int8
+			{
+				PICKUP_TYPE_ANIM = 1,
+				PICKUP_TYPE_WEAPON = 8,
+				PICKUP_TYPE_AMMO,
+				PICKUP_TYPE_BOMB = 11
 			};
 		}
 
@@ -554,6 +563,21 @@ namespace Engine
 				float							explosionRadius;			//0x0018
 				char							pad_001C[4];				//0x001C
 			};	//Size: 0x0080
+		
+			class CPickup
+			{
+			public:
+				float mLifetime; //0x0000
+				i32_t pNode; //0x0004	CNode*
+				i32_t pData; //0x0008	PickupType*
+				Enums::EPickupType mType; //0x000C
+				bool bLocked; //0x000D
+				bool bSecondary; //0x000E
+				char mUnused; //0x000F
+				__int16 mID; //0x0010
+				__int16 mNetID; //0x0012
+				bool bVisibleByUnits; //0x0014
+			}; //Size: 0x0015
 		}
 
 		namespace Tools
@@ -566,6 +590,7 @@ namespace Engine
 			bool GetLocalSeal(Classes::CZSealBody& pSeal, i64_t* pAddr);
 			bool GetPlayers(std::vector<Classes::CZSealBody>* players);
 			bool GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr);
+			bool GetPickups(std::vector<Classes::CPickup>& pickups);
 			std::string GetWeaponName(const Enums::EWeapon& weapon);
 			std::string GetAmmoName(const Enums::EWeaponAmmo& ammo);
 
@@ -601,39 +626,49 @@ public:
 
 	struct SImGuiPlayer
 	{
-		bool bAlive{ false };
-		__int64 pAddr{ 0 };
-		float health{ 0.0f };
-		__int8 stance{ 0 };	//	0 = standing, 1 = crouching, 2 = prone
-		std::string name;
-		Engine::Vec3 pos;
+		std::string m_name;
+		bool m_bAlive{ false };
+		float m_health{ 0.0f };
+		Engine::Vec3 m_pos{ 0.0f, 0.0f, 0.0f };
+		Engine::zdb::Enums::ESealStance m_stance{ Engine::zdb::Enums::ESealStance::ESealStance_Stand };
+		Engine::zdb::Classes::CZSealBody m_class;
 	};
 
-	struct SGame
+	struct SImGuiPickup
 	{
-		bool bInGame{ false };
-		__int32 playerCount{ 0 };
+		std::string m_name;
+		Engine::Vec3 m_pos{ 0.0f, 0.0f, 0.0f };
+		Engine::zdb::Classes::CPickup m_class;
+	};
+	
+	struct SGameContext
+	{
+		bool m_bInGame{ false };
+		__int32 m_playerCount{ 0 };
+		__int32 m_pickupCount{ 0 };
 	};
 
 	struct SLocalPlayer
 	{
-		__int64 pAddr{ 0 };
-		std::string name;
-		Engine::Vec3 pos;
-		Engine::zdb::Classes::CZSealBody seal;
+		__int64 m_RVA{ 0 };
+		std::string m_name;
+		Engine::Vec3 m_pos;
+		Engine::zdb::Classes::CZSealBody m_seal;
 	};
 
-	struct SGlobals
+	struct SGlobalSnapshot
 	{
-		bool bValid{ false };
-		SGame game;
-		SLocalPlayer localPlayer;
-		std::vector<SImGuiPlayer> render;
-		Engine::zdb::Classes::zdb_CCamera camera;
+		bool m_bValid{ false };
+		SGameContext m_ctx;
+		SLocalPlayer m_localPlayer;
+		std::vector<SImGuiPlayer> m_players;
+		std::vector<SImGuiPickup> m_pickups;
+		Engine::zdb::Classes::zdb_CCamera m_camera;
 	};
 
 public:
-	SGlobals imCache;
+	std::mutex m_cacheMutex;
+	SGlobalSnapshot m_cache;
 
 public:
 	void Update();
