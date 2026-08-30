@@ -17,37 +17,57 @@ int main()
 	g_dxWindow->Init();
 
 	//	Initialize Background Thread
-	std::thread wcw(mainthread);
-	std::thread ecw(emuThread);
+	//	std::thread wcw(mainthread);
+	//	std::thread ecw(emuThread);
 
 	while (g_Menu->bRunning)
 	{
+		auto t0 = std::chrono::steady_clock::now();
 		bool bTimer = GetTickCount64() - LastTick > 500;
-		if (GetAsyncKeyState(VK_RCONTROL) & 0x8000 && bTimer)
+
+		// SHOW / HIDE MENU
 		{
-			g_Menu->bShowMenu ^= 1;
-			g_Menu->UpdateOverlayViewState(g_Menu->bShowMenu);
-			switch (g_Menu->bShowMenu)
+			if (GetAsyncKeyState(VK_RCONTROL) & 0x8000 && bTimer)
 			{
+				g_Menu->bShowMenu ^= 1;
+				g_Menu->UpdateOverlayViewState(g_Menu->bShowMenu);
+				switch (g_Menu->bShowMenu)
+				{
 				case(true): g_dxWindow->SetWindowFocus(g_dxWindow->GetWindowHandle()); break;
 				case(false): g_dxWindow->SetWindowFocus(g_PSXMemory.GetPsxInfo().hWnd); break;
-			}
+				}
 
-			LastTick = GetTickCount64();
+				LastTick = GetTickCount64();
+			}
 		}
 
-		//	g_PSXMemory.update();
-		//	g_SOCOM->Update();
+		/* PCSX2 MEMORY UPDATE */
+		auto t1 = std::chrono::steady_clock::now();
+		{
+			g_PSXMemory.update();
+		}
 
-		g_dxWindow->CloneUpdate(g_PSXMemory.GetPsxInfo().hWnd);
-		g_dxWindow->Update(g_Menu->GetOverlay());
+		/* SOCOM UPDATE */
+		auto t2 = std::chrono::steady_clock::now();
+		{
+			g_SOCOM->Update();
+		}
 
-		std::this_thread::sleep_for(1ms);
+		/* DX WINDOW UPDATE */
+		auto t3 = std::chrono::steady_clock::now();
+		{
+			g_dxWindow->CloneUpdate(g_PSXMemory.GetPsxInfo().hWnd);
+			g_dxWindow->Update(g_Menu->GetOverlay());
+		}
+
+		auto t4 = std::chrono::steady_clock::now();
+
+		//	std::this_thread::sleep_for(1ms);
 		std::this_thread::yield();
 	}
 
-	wcw.join();
-	ecw.join();
+	//	wcw.join();
+	//	ecw.join();
 
 	g_dxWindow->Shutdown();
 	g_SOCOM->ShutDown();
@@ -61,7 +81,7 @@ int mainthread()
 	{
 		g_SOCOM->Update();
 
-		std::this_thread::sleep_for(1ms);
+		//	std::this_thread::sleep_for(1ms);
 		std::this_thread::yield();
 	}
 
