@@ -16,8 +16,8 @@ namespace Engine
 
 	Vec2& Vec2::operator*=(const Vec2& other)
 	{
-		x += other.x;
-		y += other.y;
+		x *= other.x;
+		y *= other.y;
 		return *this;
 	}
 
@@ -215,6 +215,27 @@ namespace Engine
 	{
 		return Vec3(m[3][0], m[3][1], m[3][2]);
 	}
+
+	Vec3 Matrix4x4::Row0() const
+	{
+		return Vec3(m[0][0], m[0][1], m[0][2]);
+	}
+
+	Vec3 Matrix4x4::Row1() const
+	{
+		return Vec3(m[1][0], m[1][1], m[1][2]);
+	}
+
+	Vec3 Matrix4x4::Row2() const
+	{
+		return Vec3(m[2][0], m[2][1], m[2][2]);
+	}
+
+	Vec3 Matrix4x4::Row3() const
+	{
+		return Vec3(m[3][0], m[3][1], m[3][2]);
+	}
+
 
 	Vec4 Matrix4x4::MatrixMultiply(const Vec3& v) const {
 		return Vec4
