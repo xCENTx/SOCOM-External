@@ -22,7 +22,6 @@ int main()
 
 	while (g_Menu->bRunning)
 	{
-		auto t0 = std::chrono::steady_clock::now();
 		bool bTimer = GetTickCount64() - LastTick > 500;
 
 		// SHOW / HIDE MENU
@@ -42,25 +41,31 @@ int main()
 		}
 
 		/* PCSX2 MEMORY UPDATE */
-		auto t1 = std::chrono::steady_clock::now();
+		auto t0 = std::chrono::steady_clock::now();
 		{
 			g_PSXMemory.update();
 		}
 
 		/* SOCOM UPDATE */
-		auto t2 = std::chrono::steady_clock::now();
+		auto t1 = std::chrono::steady_clock::now();
 		{
 			g_SOCOM->Update();
 		}
 
 		/* DX WINDOW UPDATE */
-		auto t3 = std::chrono::steady_clock::now();
+		auto t2 = std::chrono::steady_clock::now();
 		{
 			g_dxWindow->CloneUpdate(g_PSXMemory.GetPsxInfo().hWnd);
 			g_dxWindow->Update(g_Menu->GetOverlay());
 		}
 
-		auto t4 = std::chrono::steady_clock::now();
+		auto t3 = std::chrono::steady_clock::now();
+
+
+		g_Menu->m_refreshTimes[0] = std::chrono::duration<float, std::milli>(t1 - t0).count();		// pcsx2
+		g_Menu->m_refreshTimes[1] = std::chrono::duration<float, std::milli>(t2 - t1).count();		// socom
+		g_Menu->m_refreshTimes[2] = std::chrono::duration<float, std::milli>(t3 - t2).count();		// window
+		g_Menu->m_refreshTimes[3] = std::chrono::duration<float, std::milli>(t3 - t0).count();		// total
 
 		//	std::this_thread::sleep_for(1ms);
 		std::this_thread::yield();
