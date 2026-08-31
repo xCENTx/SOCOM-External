@@ -243,6 +243,41 @@ namespace Engine
 			}
 
 			/* */
+			int Game::GetFramerate()
+			{
+				const int default_frame = 30;
+
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return default_frame;
+
+				const i64_t& pFPS = eemem + Offsets::gFPS;
+				if (!pFPS || pFPS == Offsets::gFPS)
+					return default_frame;
+
+				return g_PSXMemory.Read<int>(pFPS);
+			}
+
+			Matrix4x4 Transform::BuildViewToScreen(const zdb::Classes::zdb_CCamera& camera)
+			{
+				/*
+					457.007			0				0				0
+					0				457.007			0				0
+					2048.000		2048.000		-3.722			1
+					0				0				262154.900		0
+				
+				crucial components
+				 - scaleX	= 457.007	[0][0]
+				 - scaleY	= 457.007	[1][1]
+				 - centerX	=	2048	[2][0]
+				 - centerY	=	2048	[2][1]
+				 - w
+				*/
+
+				return Matrix4x4{0};
+			}
+
+			/* */
 			Vec4 Transform::WorldToView(const Vec3& worldPosition, const Matrix4x4& worldToView)
 			{
 				return worldToView.TransformPoint(worldPosition);

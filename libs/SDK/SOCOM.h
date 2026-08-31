@@ -595,6 +595,7 @@ namespace Engine
 
 			namespace Transform
 			{
+				Matrix4x4 BuildViewToScreen(const zdb::Classes::zdb_CCamera& camera);
 				Vec4 WorldToView(const Vec3& worldPosition, const Matrix4x4& worldToView);
 				Vec3 WorldToViewFromModel(const Vec3& worldPosition, const Matrix4x4& modelMatrix);
 				Vec4 ViewToScreenSpace(const Vec4& view, const Matrix4x4& viewToScreen);
@@ -625,6 +626,11 @@ namespace Engine
 				bool GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr);
 				std::string GetWeaponName(const Enums::EWeapon& weapon);
 				std::string GetAmmoName(const Enums::EWeaponAmmo& ammo);
+			}
+
+			namespace Game
+			{
+				int GetFramerate();
 			}
 		}
 
