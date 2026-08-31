@@ -440,7 +440,13 @@ namespace Engine
 				Vec2							mCos;						//0x01C8
 				Vec2							mTan;						//0x01D0
 				Vec2							mCot;						//0x01D8
-				char							pad_01E0[224];				//0x01E0
+				char							pad_01E0[176];				//0x01E0
+				float							m_scrZ;						//0x0290
+				char							pad_0294[28];				//0x0294
+				unsigned int					m_AboveMaterial;			//0x02B0
+				float							m_landmark_far_plane;		//0x02B4
+				float							m_RangeScale;				//0x02B8
+				char							pad_02BC[4];				//0x02BC
 				tag_ZCAM_MTX_SET				m_mtxSet;					//0x02C0
 				uint16_t						m_scratch;					//0x03C0
 				char							pad_03C2[14];				//0x03C2
@@ -450,7 +456,10 @@ namespace Engine
 				Vec2							m_screenOffset;				//0x0450
 				tag_RECT						m_screen;					//0x0458
 				Vec2							m_screenConstant;			//0x0468
-				char							pad_0470[64];				//0x0470
+				float							m_Zmin;						//0x0470
+				float							m_Zmax;						//0x0474
+				char							pad_0478[160];				//0x0478
+
 			};    //Size: 0x079C
 
 			class CZSealObject
@@ -595,6 +604,7 @@ namespace Engine
 
 			namespace Transform
 			{
+				Matrix4x4 BuildViewToClip(const zdb::Classes::zdb_CCamera& camera);
 				Matrix4x4 BuildViewToScreen(const zdb::Classes::zdb_CCamera& camera);
 				Vec4 WorldToView(const Vec3& worldPosition, const Matrix4x4& worldToView);
 				Vec3 WorldToViewFromModel(const Vec3& worldPosition, const Matrix4x4& modelMatrix);

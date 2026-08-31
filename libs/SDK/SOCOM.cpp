@@ -258,23 +258,78 @@ namespace Engine
 				return g_PSXMemory.Read<int>(pFPS);
 			}
 
+			Matrix4x4 Transform::BuildViewToClip(const zdb::Classes::zdb_CCamera& camera)
+			{
+				/*
+				
+				* ViewToClip
+					1.428			0				0				0
+					0				1.020			0				0
+					0				0				1				1
+					0				0				-8.002			0
+
+				crucial components
+				key
+				 - [0][0] = 457.007 / 320 = 1.428146875
+				 - [1][1] = 457.007 / 448 = 1.020105
+				*/
+
+				const float viewportWidth = camera.m_screen.right - camera.m_screen.left;
+				const float viewportHeight = camera.m_screen.bottom - camera.m_screen.top;
+
+				const float viewToClip_00 = camera.m_scrZ / (viewportWidth / 2) * camera.m_screenAspect.x;
+				const float viewToClip_11 = camera.m_scrZ / viewportHeight * camera.m_screenAspect.y;
+
+				return {
+					viewToClip_00, 0.0f, 0.0f, 0.0f,
+					0.0f, viewToClip_11, 1.0f, 1.0f,
+					0.0f, 0.0f, 0.0f, 0.0f
+				};
+			}
+
 			Matrix4x4 Transform::BuildViewToScreen(const zdb::Classes::zdb_CCamera& camera)
 			{
 				/*
+				* ViewToScreen
 					457.007			0				0				0
 					0				457.007			0				0
 					2048.000		2048.000		-3.722			1
 					0				0				262154.900		0
-				
+
 				crucial components
 				 - scaleX	= 457.007	[0][0]
 				 - scaleY	= 457.007	[1][1]
 				 - centerX	=	2048	[2][0]
 				 - centerY	=	2048	[2][1]
-				 - w
+				 - depth	= -3.722
+				 - ZMapping = 262154.900
+
+				key
+				 - scale = m_scrZ * m_screenAspect
+				 - center = m_screenCenter + m_screenOffset
 				*/
 
-				return Matrix4x4{0};
+				const float scaleX = camera.m_scrZ * camera.m_screenAspect.x;
+				const float scaleY = camera.m_scrZ * camera.m_screenAspect.y;
+
+				const float centerX = camera.m_screenCenter.x + camera.m_screenOffset.x;
+				const float centerY = camera.m_screenCenter.y + camera.m_screenOffset.y;
+
+				/*
+					Depth mapping still unknown.
+
+					These values do not affect WorldToScreen because
+					ScreenSpaceToNormalized only consumes x, y, and w.
+				*/
+				const float depthScale = 1.f; // unknown how to obtain , seems to come from viewtoclip
+				const float depthBias = camera.m_Zmax * (camera.m_camera_params.m_near_plane/* + depthScale*/); // 65535.0000 * (4.00000000) = 262140.000
+
+				return {
+					scaleX, 0.0f, 0.0f, 0.0f,
+					0.0f, scaleY, 0.0f, 0.0f,
+					centerX, centerY, depthScale, 1.0f,
+					0.0f, 0.0f, depthBias, 0.0f
+				};
 			}
 
 			/* */
