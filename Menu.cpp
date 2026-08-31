@@ -206,7 +206,7 @@ void Menu::HUD()
     auto top_center = ImVec2({ center.x, wndw.Min.y });
 
     RenderCache();
-
+    RenderAnalytics();
     ImGui::End();
 }
 
@@ -228,107 +228,185 @@ void Menu::RenderCache()
     ImDrawList* pDraw = ImGui::GetWindowDrawList();
     Engine::Vec2 szScreen = { screen_size.x , screen_size.y };
 
-    for (auto& obj : cache.m_players)
+    /* PLAYERS */
+    if (this->bESP)
     {
-        if (!obj.m_bAlive)
-            continue;
-
-        auto ent_origin = obj.m_pos;
-        auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
-        if (distance > this->mESPDist)
-            continue;
-
-        //  calc head pos
-        auto ent_headOrigin = ent_origin;
-		obj.m_stance == 0 ? ent_headOrigin.y += 20.f : obj.m_stance == 1 ? ent_headOrigin.y += 14.f : ent_headOrigin.y += 3.0f;
-
-        Engine::Vec2 screen;
-        Engine::Vec2 screenHead;
-        if (Engine::zdb::Tools::WorldToScreen(ent_origin, cache.m_camera, szScreen, &screen) == false ||
-            Engine::zdb::Tools::WorldToScreen(ent_headOrigin, cache.m_camera, szScreen, &screenHead) == false
-            )
-            continue;
-
-        ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
-        ImVec2 head_pos = screen_pos + ImVec2(screenHead.x, screenHead.y);
-        float corner_height = abs(head_pos.y - pos.y);		                                    //	Width
-        float corner_width = corner_height * 0.65;			                                    //	Height
-        ImVec2 pos_box(head_pos.x - (corner_width / 2), head_pos.y);	                        //	Top Left Corner
-        ImRect bbox(pos_box, ImVec2(pos_box.x + corner_width, pos_box.y + corner_height));      //  2d bounding box
-
-        //  SNAP
-        if (this->bESPSnap)
-            GUI::CleanLine(pos, screen_center, IM_COL32_WHITE);
-        
-        // skip drawing certain visuals if prone
-        if (obj.m_stance >= 2)
-            continue;
-
-        //  BOX
-        if (this->bESPBox2D) // draw 2d box but skip prone players
-			pDraw->AddRect(bbox.Min, bbox.Max, IM_COL32_WHITE, 0.f, 0, 1.f);
-
-        //	HEALTH
-        if (this->bESPHealth)
+        for (auto& obj : cache.m_players)
         {
-            ImColor mColHealth(255 - obj.m_health * 2.55, obj.m_health * 2.55, 0);					//	health color
-            float heightBarHP = bbox.GetHeight() - (bbox.GetHeight() * (obj.m_health / 100.f));	//	health bar height
-            auto lBar = ImRect(bbox.Min, ImVec2(bbox.Min.x + 1.f, bbox.Max.y));					//	left healthbar
-            pDraw->AddRect(lBar.Min, lBar.Max, IM_COL32_WHITE);
-            pDraw->AddRect(ImVec2(lBar.Min.x, lBar.Min.y + heightBarHP), lBar.Max, mColHealth);
-        }
+            if (!obj.m_bAlive)
+                continue;
 
-        //  NAME
-        if (this->bESPName)
-        {
-            char buf_dist[16];
-            sprintf_s(buf_dist, "[%.0fm]", distance);
-            std::string nameDist(buf_dist);
-            std::string nameEnt = obj.m_name;
-            ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
-            ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
-            ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y);
-            ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 1.5f));
-            GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(10, 10, 10, 100));
-            GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
+            auto ent_origin = obj.m_pos;
+            auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
+            if (distance > this->mESPDist)
+                continue;
+
+            //  calc head pos
+            auto ent_headOrigin = ent_origin;
+            obj.m_stance == 0 ? ent_headOrigin.y += 20.f : obj.m_stance == 1 ? ent_headOrigin.y += 14.f : ent_headOrigin.y += 3.0f;
+
+            Engine::Vec2 screen;
+            Engine::Vec2 screenHead;
+            if (Engine::zdb::Tools::Transform::WorldToScreen(ent_origin, cache.m_camera, szScreen, &screen) == false ||
+                Engine::zdb::Tools::Transform::WorldToScreen(ent_headOrigin, cache.m_camera, szScreen, &screenHead) == false
+                )
+                continue;
+
+            ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
+            ImVec2 head_pos = screen_pos + ImVec2(screenHead.x, screenHead.y);
+            float corner_height = abs(head_pos.y - pos.y);		                                    //	Width
+            float corner_width = corner_height * 0.65;			                                    //	Height
+            ImVec2 pos_box(head_pos.x - (corner_width / 2), head_pos.y);	                        //	Top Left Corner
+            ImRect bbox(pos_box, ImVec2(pos_box.x + corner_width, pos_box.y + corner_height));      //  2d bounding box
+
+            //  SNAP
+            if (this->bESPSnap)
+                GUI::CleanLine(pos, screen_center, IM_COL32_WHITE);
+
+            // skip drawing certain visuals if prone
+            if (obj.m_stance >= 2)
+                continue;
+
+            //  BOX
+            if (this->bESPBox2D) // draw 2d box but skip prone players
+                pDraw->AddRect(bbox.Min, bbox.Max, IM_COL32_WHITE, 0.f, 0, 1.f);
+
+            //	HEALTH
+            if (this->bESPHealth)
+            {
+                ImColor mColHealth(255 - obj.m_health * 2.55, obj.m_health * 2.55, 0);					//	health color
+                float heightBarHP = bbox.GetHeight() - (bbox.GetHeight() * (obj.m_health / 100.f));	//	health bar height
+                auto lBar = ImRect(bbox.Min, ImVec2(bbox.Min.x + 1.f, bbox.Max.y));					//	left healthbar
+                pDraw->AddRect(lBar.Min, lBar.Max, IM_COL32_WHITE);
+                pDraw->AddRect(ImVec2(lBar.Min.x, lBar.Min.y + heightBarHP), lBar.Max, mColHealth);
+            }
+
+            //  NAME
+            if (this->bESPName)
+            {
+                char buf_dist[16];
+                sprintf_s(buf_dist, "[%.0fm]", distance);
+                std::string nameDist(buf_dist);
+                std::string nameEnt = obj.m_name;
+                ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
+                ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
+                ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y);
+                ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 1.5f));
+                GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(10, 10, 10, 100));
+                GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
+            }
         }
     }
 
-    if (this->bESPPickups == false)
-        return;
-
-    for (auto& obj : cache.m_pickups)
+    /* PICKUPS */
+    if (this->bESPPickups)
     {
-        auto ent_origin = obj.m_pos;
-        auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
-        if (distance > this->mESPDist)
-            continue;
-
-        Engine::Vec2 screen;
-        if (Engine::zdb::Tools::WorldToScreen(ent_origin, cache.m_camera, szScreen, &screen) == false)
-            continue;
-
-        ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
-
-        //  SNAP
-        if (this->bESPSnap)
-            GUI::CleanLine(pos, screen_center, IM_COL32_WHITE);
-
-        //  NAME
-        if (this->bESPName)
+        for (auto& obj : cache.m_pickups)
         {
-            char buf_dist[16];
-            sprintf_s(buf_dist, "[%.0fm]", distance);
-            std::string nameDist(buf_dist);
-            std::string nameEnt = obj.m_name;
-            ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
-            ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
-            ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y - (szTextName.y * 0.5f));
-            ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 0.5f));
-            GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
-            GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(10, 10, 10, 100));
+            auto ent_origin = obj.m_pos;
+            auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
+            if (distance > this->mESPDist)
+                continue;
+
+            Engine::Vec2 screen;
+            Engine::Vec2 screen_view;
+            if (Engine::zdb::Tools::Transform::WorldToScreen(ent_origin, cache.m_camera, szScreen, &screen) == false)
+                continue;
+
+            ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
+
+            //  SNAP
+            if (this->bESPSnap)
+                GUI::CleanLine(pos, screen_center, IM_COL32_WHITE);
+
+            //  NAME
+            if (this->bESPName)
+            {
+                char buf_dist[16];
+                sprintf_s(buf_dist, "[%.0fm]", distance);
+                std::string nameDist(buf_dist);
+                std::string nameEnt = obj.m_name;
+                ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
+                ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
+                ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y - (szTextName.y * 0.5f));
+                ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 0.5f));
+                GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
+                GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(10, 10, 10, 100));
+            }
         }
     }
+}
+
+void Menu::RenderAnalytics()
+{
+    static float smoothed[4]{};
+    static float cam_smoothed[2]{};
+
+    constexpr float smoothing = 0.05f;
+
+    for (int i = 0; i < 4; ++i)
+    {
+        if (smoothed[i] == 0.0f)
+            smoothed[i] = m_refreshTimes[i];
+        else
+            smoothed[i] += (m_refreshTimes[i] - smoothed[i]) * smoothing;
+
+        if (i == 0 || i == 1)
+        {
+            if (cam_smoothed[i] == 0.0f)
+                cam_smoothed[i] = g_SOCOM->m_cameraRefreshTime[i];
+            else
+                cam_smoothed[i] += (g_SOCOM->m_cameraRefreshTime[i] - cam_smoothed[i]) * smoothing;
+        }
+    }
+
+    const ImRect& wndw = GetCloneOverlayBounds();
+    ImGui::SetNextWindowPos(wndw.Min + wndw.GetSize() * .01f);
+    ImGui::SetNextWindowBgAlpha(0.75f);
+
+    ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_AlwaysAutoResize |
+        ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoFocusOnAppearing |
+        ImGuiWindowFlags_NoNav;
+
+    if (ImGui::Begin("Render Analytics", nullptr, flags))
+    {
+        static const char* labels[] =
+        {
+            "PCSX2 Update",
+            "SOCOM Update",
+            "Window Update",
+            "Total"
+        };
+
+        for (int i = 0; i < 4; ++i)
+        {
+            const float ms = smoothed[i];
+            const float hz = ms > 0.0f ? 1000.0f / ms : 0.0f;
+
+            ImGui::Text(
+                "%-14s %7.3f ms  (%7.1f Hz)",
+                labels[i],
+                ms,
+                hz
+            );
+        }
+
+        float cameraMs = cam_smoothed[0];
+        float cameraHz = cameraMs > 0.0f
+            ? 1000.0f / cameraMs
+            : 0.0f;
+
+        ImGui::Text(
+            "Camera WorldToView Matrix  %7.3f ms  (%7.1f Hz)",
+            cameraMs,
+            cameraHz
+        );
+    }
+
+    ImGui::End();
 }
 
 void GUI::TextCentered(const char* pText)

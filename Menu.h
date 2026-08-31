@@ -10,6 +10,7 @@ class Menu
 public:
 	bool bRunning{ true };
 	bool bShowMenu{ true };
+	float m_refreshTimes[4]; // debug - PCSX2 - SOCOM - WINDOW - TOTAL
 
 public:	//	visuals
 	bool bESP{ false };
@@ -50,6 +51,7 @@ public:
 private:
 	DxWindow::SOverlay elements;
 	void RenderCache();
+	void RenderAnalytics();
 }; inline std::unique_ptr<Menu> g_Menu;
 
 //	basic color defines
