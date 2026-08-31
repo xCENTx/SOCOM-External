@@ -333,10 +333,24 @@ namespace Engine
 			}
 
 			/* */
-			bool Transform::WorldToScreen(const Vec3& worldPosition, Vec2* out) { return ProjectWorldToScreen_INTERNAL(worldPosition, out); }
+			bool Transform::WorldToScreen(const Vec3& worldLocation, Vec2* out)
+			{
+				Classes::zdb_CCamera camera;
+				if (!Tools::Camera::GetCamera(camera))
+					return false;
+
+				return WorldToScreen(worldLocation, camera, out);
+			}
 
 			/* */
-			bool Transform::WorldToScreen(const Vec3& worldPosition, const Vec2& szScreen, Vec2* out) { return ProjectWorldToScreen_INTERNAL(worldPosition, szScreen, out); }
+			bool Transform::WorldToScreen(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out)
+			{
+				Classes::zdb_CCamera camera;
+				if (!Tools::Camera::GetCamera(camera))
+					return false;
+
+				return WorldToScreen(worldLocation, camera, szScreen, out);
+			}
 
 			/* */
 			bool Transform::WorldToScreen(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, Vec2* out)
@@ -374,50 +388,23 @@ namespace Engine
 			}
 
 			/* */
-			bool Transform::ProjectWorldToScreenFromModelMtx(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, const Engine::Matrix4x4& modelMatrix, const Vec2& szScreen, Vec2* out)
+			bool Transform::Debug::ProjectWorldToScreenFromModelMtx(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, const Engine::Matrix4x4& modelMatrix, const Vec2& szScreen, Vec2* out)
 			{
 				/* transform world point to view space */
-				auto view_custom = WorldToView(worldLocation, modelMatrix);
+				auto view = WorldToView(worldLocation, modelMatrix);
 
 				/* get native screen space (GS) */
-				auto gs = camera.m_mtxSet.mtxViewToScreen.TransformPoint(view_custom);
+				auto gs = ViewToScreenSpace(view, camera.m_mtxSet.mtxViewToScreen);
 
-				/* check if behind camera */
-				if (gs.w <= 0.001f)
+				Vec2 normalized{};
+				if (ScreenSpaceToNormalized(gs, camera.m_screen, &normalized) == false)
 					return false;
 
-				float gsX = gs.x / gs.w;
-				float gsY = gs.y / gs.w;
-
-				float nativeWidth = camera.m_screen.right - camera.m_screen.left;
-				float nativeHeight = camera.m_screen.bottom - camera.m_screen.top;
-
-				/* convert native ps2 viewport to normalized [0, 1] */
-				float u = (gsX - camera.m_screen.left) / nativeWidth;
-				float v = (gsY - camera.m_screen.top) / nativeHeight;
-
-				/* scale */
-				Vec2 result =
-				{
-					u * szScreen.x,
-					v * szScreen.y
-				};
-
-				if (result.x < 0.0f ||
-					result.y < 0.0f ||
-					result.x > szScreen.x ||
-					result.y > szScreen.y)
-				{
-					return false;
-				}
-
-				*out = result;
-
-				return true;
+				return NormalizedToScreen(normalized, szScreen, out);
 			}
 
 			/* */
-			bool Transform::ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D)
+			bool Transform::Debug::ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D)
 			{
 				Vec3 cam_pos = Vec3(CameraView.pos.x, CameraView.pos.y, CameraView.pos.z);
 				Vec3 cam_look = Vec3(-CameraView.fwd.x, -CameraView.fwd.y, -CameraView.fwd.z);
@@ -464,27 +451,7 @@ namespace Engine
 			}
 
 			/* */
-			bool Transform::ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, Vec2* out)
-			{
-				Classes::zdb_CCamera camera;
-				if (!Tools::Camera::GetCamera(camera))
-					return false;
-
-				return WorldToScreen(worldLocation, camera, out);
-			}
-
-			/* */
-			bool Transform::ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out)
-			{
-				Classes::zdb_CCamera camera;
-				if (!Tools::Camera::GetCamera(camera))
-					return false;
-
-				return WorldToScreen(worldLocation, camera, szScreen, out);
-			}
-
-			/* */
-			bool Transform::ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out)
+			bool Transform::Debug::ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out)
 			{
 				//
 				// World -> View
@@ -772,6 +739,26 @@ namespace Engine
 				g_PSXMemory.Write<int>(pSuccessAddr, 1);
 			}
 
+			void SetFramerate(int frames)
+			{
+				struct iVec2 {
+					i32_t m[2];
+				};
+				
+				const i64_t& eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				const i64_t& pFPS = eemem + Offsets::gFPS;
+				if (!pFPS || pFPS == Offsets::gFPS)
+					return;
+
+				i32_t fps = frames;
+				if (fps <= 0)
+					fps = 30;
+
+				g_PSXMemory.Write<iVec2>(pFPS, { fps, fps });
+			}
 
 			/* CUSTOM */
 			void SetAmmoProperties(const int& weaponIndex, Classes::CZAmmo& newAmmoType)
@@ -935,20 +922,20 @@ void SOCOM::Update()
 	auto& game = globals.m_ctx;
 	auto& player = globals.m_localPlayer;
 
-	__int64 eemem = g_PSXMemory.GetEEMemory();
-	if (!eemem)
+	globals.m_EE = g_PSXMemory.GetEEMemory();
+	if (!globals.m_EE)
 		return reset("failed to obtain eemem");
 
 	//	GET LOCAL PLAYER
-	auto pLocalPlayer = g_PSXMemory.Read<__int32>(eemem + Offsets::gLocalSeal);;
+	auto pLocalPlayer = g_PSXMemory.Read<__int32>(globals.m_EE + Offsets::gLocalSeal);;
 	if (!pLocalPlayer)
 		return reset("failed to obtain local player");
 
-	auto localSeal = g_PSXMemory.Read<Classes::CZSealBody>(eemem + pLocalPlayer);
+	auto localSeal = g_PSXMemory.Read<Classes::CZSealBody>(globals.m_EE + pLocalPlayer);
 	
 	/* get the tick rate */
 	{
-		auto tick = g_PSXMemory.Read<__int32>(eemem + (localSeal.pSealTM + 0xA4));
+		auto tick = g_PSXMemory.Read<__int32>(globals.m_EE + (localSeal.pSealTM + 0xA4));
 		if (this->m_tick == 0) // tick not yet set
 			this->m_tick = tick; // set the tick rate
 	}
@@ -956,7 +943,7 @@ void SOCOM::Update()
 	player.m_RVA = pLocalPlayer;
 	player.m_pos = localSeal.origin;
 	player.m_seal = localSeal;
-	if (!g_PSXMemory.ReadString(eemem + localSeal.pName, player.m_name, 32))
+	if (!g_PSXMemory.ReadString(globals.m_EE + localSeal.pName, player.m_name, 32))
 		return reset("failed to read local player name");
 
 	//	GET PLAYERS
@@ -972,7 +959,7 @@ void SOCOM::Update()
 			if (ent.pName == localSeal.pName)
 				continue;	//	skip local player
 
-			if (!g_PSXMemory.ReadString(eemem + ent.pName, imPlayer.m_name, 32))
+			if (!g_PSXMemory.ReadString(globals.m_EE + ent.pName, imPlayer.m_name, 32))
 				continue;
 
 			imPlayer.m_pos = ent.origin;
@@ -995,14 +982,24 @@ void SOCOM::Update()
 		{
 			SImGuiPickup imPickup;
 
-			auto pName = g_PSXMemory.Read<__int32>(eemem + (pickup.pNode + 0x90));
+			i32_t pName{ 0 };
+			if (pickup.mType == Engine::zdb::Structs::EPickupType::PICKUP_TYPE_WEAPON)
+				pName = g_PSXMemory.Read<__int32>(globals.m_EE + (pickup.pData + 0x4)); // CZWeapon::pDisplayName
+			else
+			{
+				pName = g_PSXMemory.Read<__int32>(globals.m_EE + (pickup.pData + 0x14)); //
+				if (pName)
+					pName = g_PSXMemory.Read<__int32>(globals.m_EE + pName); // 
+					if (pName)
+						pName = g_PSXMemory.Read<__int32>(globals.m_EE + (pName + 0x4)); // CZAmmo::pDisplayName
+			}
 			if (!pName)
 				continue;
 
-			if (!g_PSXMemory.ReadString(eemem + pName, imPickup.m_name))
+			if (!g_PSXMemory.ReadString(globals.m_EE + pName, imPickup.m_name))
 				continue;
 
-			auto model_matrix = g_PSXMemory.Read<Engine::Matrix4x4>(eemem + pickup.pNode);
+			auto model_matrix = g_PSXMemory.Read<Engine::Matrix4x4>(globals.m_EE + pickup.pNode);
 
 			imPickup.m_pos = model_matrix.Translate();
 			imPickup.m_class = pickup;

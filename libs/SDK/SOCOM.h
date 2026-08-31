@@ -143,6 +143,7 @@ namespace Engine
 			constexpr auto gMission{ 0x4D4880 };		//	black label
 			constexpr auto gCamera{ 0x51E778 };			//	black label
 			constexpr auto gPickups{ 0x51E970 };		//	black label - ZArray<CPickup*>
+			constexpr auto gFPS{ 0x48CF60 };			//	black label - int
 		}
 
 		namespace Enums
@@ -602,11 +603,13 @@ namespace Engine
 				bool WorldToScreen(const Vec3& worldPosition, const Vec2& szScreen, Vec2* out);
 				bool WorldToScreen(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, Vec2* out);
 				bool WorldToScreen(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out);
-				bool ProjectWorldToScreenFromModelMtx(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Matrix4x4& modelMatrix, const Vec2& szScreen, Vec2* out);
-				bool ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D);
-				bool ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, Vec2* out);
-				bool ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out);
-				bool ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out);
+
+				namespace Debug
+				{
+					bool ProjectWorldToScreenFromModelMtx(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Matrix4x4& modelMatrix, const Vec2& szScreen, Vec2* out);
+					bool ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D);
+					bool ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out);
+				}
 			}
 
 			namespace Entity
@@ -638,7 +641,7 @@ namespace Engine
 			void ForceCompleteMission();
 
 			/* GAME */
-			void SetFramerate();
+			void SetFramerate(int frames = 0);
 
 			/* CUSTOM */
 			void SetAmmoProperties(const int& weaponIndex, Classes::CZAmmo& newAmmoType);
@@ -685,6 +688,7 @@ public:
 	struct SGlobalSnapshot
 	{
 		bool m_bValid{ false };
+		_int64 m_EE{ 0 };
 		SGameContext m_ctx;
 		SLocalPlayer m_localPlayer;
 		std::vector<SImGuiPlayer> m_players;
