@@ -61,7 +61,7 @@ int main()
 
 		auto t3 = std::chrono::steady_clock::now();
 
-
+		/* get refresh times */
 		g_Menu->m_refreshTimes[0] = std::chrono::duration<float, std::milli>(t1 - t0).count();		// pcsx2
 		g_Menu->m_refreshTimes[1] = std::chrono::duration<float, std::milli>(t2 - t1).count();		// socom
 		g_Menu->m_refreshTimes[2] = std::chrono::duration<float, std::milli>(t3 - t2).count();		// window
