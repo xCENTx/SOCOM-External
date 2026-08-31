@@ -14,12 +14,14 @@ public:
 
 public:	//	visuals
 	bool bESP{ false };
-	bool bESPName{ false };
+	bool bESPPlayers{ true };
+	bool bESPPickups{ true };
+	bool bESPName{ true };
 	bool bESPSnap{ false };
 	bool bESPHealth{ false };
 	bool bESPBox2D{ false };
-	bool bESPPickups{ false };
 	float mESPDist{ 100.f };
+	int mFPS{ 30 };
 
 public:
 	void Draw();

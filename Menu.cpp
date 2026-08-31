@@ -9,6 +9,12 @@ Menu::Menu()
     elements.Hud = std::bind(&Menu::HUD, this);
 
     bRunning = g_PSXMemory.bAttached;
+
+    if (bRunning)
+    {
+        /* get fps for control */
+        this->mFPS = Engine::zdb::Tools::Game::GetFramerate();
+    }
 }
 
 Menu::~Menu()
@@ -75,6 +81,9 @@ void Menu::MainMenu()
     ImGui::Checkbox("ESP", &this->bESP);
     if (this->bESP)
     {
+        ImGui::SameLine();
+        ImGui::Checkbox("##render_players", &this->bESPPlayers);
+        GUI::Tooltip("PLAYERS");
         ImGui::SameLine();
         ImGui::Checkbox("##render_pickups", &this->bESPPickups);
         GUI::Tooltip("PICKUPS");
@@ -152,10 +161,9 @@ void Menu::MainMenu()
         );
     }
 
-    static int slider_fps = 30;
-    if (ImGui::SliderInt("FPS", &slider_fps, 0, 60))
+    if (ImGui::SliderInt("FPS", &this->mFPS, 0, 60))
     {
-        Engine::zdb::Patches::SetFramerate(slider_fps);
+        Engine::zdb::Patches::SetFramerate(this->mFPS);
     }
 
     ImGui::SetCursorPosY(height - ImGui::GetTextLineHeightWithSpacing() * 2);
@@ -234,8 +242,46 @@ void Menu::RenderCache()
     ImDrawList* pDraw = ImGui::GetWindowDrawList();
     Engine::Vec2 szScreen = { screen_size.x , screen_size.y };
 
+    /* PICKUPS */
+    if (this->bESPPickups)
+    {
+        for (auto& obj : cache.m_pickups)
+        {
+            auto ent_origin = obj.m_pos;
+            const auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
+            if (distance > this->mESPDist)
+                continue;
+
+            Engine::Vec2 screen;
+            Engine::Vec2 screen_view;
+            if (Engine::zdb::Tools::Transform::WorldToScreen(ent_origin, cache.m_camera, szScreen, &screen) == false)
+                continue;
+
+            const ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
+
+            //  SNAP
+            if (this->bESPSnap)
+                GUI::CleanLine(pos, screen_center, IM_COL32_WHITE);
+
+            //  NAME
+            if (this->bESPName)
+            {
+                char buf_dist[16];
+                sprintf_s(buf_dist, "[%.0fm]", distance);
+                std::string nameDist(buf_dist);
+                std::string nameEnt = obj.m_name;
+                ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
+                ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
+                ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y - (szTextName.y * 0.5f));
+                ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 0.5f));
+                GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
+                GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(52, 98, 235, 100));
+            }
+        }
+    }
+
     /* PLAYERS */
-    if (this->bESP)
+    if (this->bESPPlayers)
     {
         for (auto& obj : cache.m_players)
         {
@@ -295,46 +341,8 @@ void Menu::RenderCache()
                 ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
                 ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y);
                 ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 1.5f));
-                GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(10, 10, 10, 100));
+                GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(235, 98, 52, 100));
                 GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
-            }
-        }
-    }
-
-    /* PICKUPS */
-    if (this->bESPPickups)
-    {
-        for (auto& obj : cache.m_pickups)
-        {
-            auto ent_origin = obj.m_pos;
-            const auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
-            if (distance > this->mESPDist)
-                continue;
-
-            Engine::Vec2 screen;
-            Engine::Vec2 screen_view;
-            if (Engine::zdb::Tools::Transform::WorldToScreen(ent_origin, cache.m_camera, szScreen, &screen) == false)
-                continue;
-
-            const ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
-
-            //  SNAP
-            if (this->bESPSnap)
-                GUI::CleanLine(pos, screen_center, IM_COL32_WHITE);
-
-            //  NAME
-            if (this->bESPName)
-            {
-                char buf_dist[16];
-                sprintf_s(buf_dist, "[%.0fm]", distance);
-                std::string nameDist(buf_dist);
-                std::string nameEnt = obj.m_name;
-                ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
-                ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
-                ImVec2 posTextName = ImVec2(pos.x - (szTextName.x * .5f), pos.y - (szTextName.y * 0.5f));
-                ImVec2 posTextDist = ImVec2(pos.x - (szTextDist.x * .5f), pos.y + (szTextName.y * 0.5f));
-                GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
-                GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(10, 10, 10, 100));
             }
         }
     }
