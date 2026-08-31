@@ -152,6 +152,12 @@ void Menu::MainMenu()
         );
     }
 
+    static int slider_fps = 30;
+    if (ImGui::SliderInt("FPS", &slider_fps, 0, 60))
+    {
+        Engine::zdb::Patches::SetFramerate(slider_fps);
+    }
+
     ImGui::SetCursorPosY(height - ImGui::GetTextLineHeightWithSpacing() * 2);
     if (ImGui::Button("EXIT", ImGui::GetContentRegionAvail()))
     {
@@ -237,7 +243,8 @@ void Menu::RenderCache()
                 continue;
 
             auto ent_origin = obj.m_pos;
-            auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
+            const auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
+            const bool bIsProne = obj.m_stance == Engine::zdb::Enums::ESealStance_Prone;
             if (distance > this->mESPDist)
                 continue;
 
@@ -252,27 +259,23 @@ void Menu::RenderCache()
                 )
                 continue;
 
-            ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
-            ImVec2 head_pos = screen_pos + ImVec2(screenHead.x, screenHead.y);
-            float corner_height = abs(head_pos.y - pos.y);		                                    //	Width
-            float corner_width = corner_height * 0.65;			                                    //	Height
-            ImVec2 pos_box(head_pos.x - (corner_width / 2), head_pos.y);	                        //	Top Left Corner
-            ImRect bbox(pos_box, ImVec2(pos_box.x + corner_width, pos_box.y + corner_height));      //  2d bounding box
+            const ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
+            const ImVec2 head_pos = screen_pos + ImVec2(screenHead.x, screenHead.y);
+            const float corner_height = abs(head_pos.y - pos.y);		                                    //	Width
+            const float corner_width = corner_height * 0.65;			                                    //	Height
+            const ImVec2 pos_box(head_pos.x - (corner_width / 2), head_pos.y);	                        //	Top Left Corner
+            const ImRect bbox(pos_box, ImVec2(pos_box.x + corner_width, pos_box.y + corner_height));      //  2d bounding box
 
             //  SNAP
             if (this->bESPSnap)
                 GUI::CleanLine(pos, screen_center, IM_COL32_WHITE);
 
-            // skip drawing certain visuals if prone
-            if (obj.m_stance >= 2)
-                continue;
-
             //  BOX
-            if (this->bESPBox2D) // draw 2d box but skip prone players
+            if (!bIsProne && this->bESPBox2D) // draw 2d box but skip prone players
                 pDraw->AddRect(bbox.Min, bbox.Max, IM_COL32_WHITE, 0.f, 0, 1.f);
 
             //	HEALTH
-            if (this->bESPHealth)
+            if (!bIsProne && this->bESPHealth)
             {
                 ImColor mColHealth(255 - obj.m_health * 2.55, obj.m_health * 2.55, 0);					//	health color
                 float heightBarHP = bbox.GetHeight() - (bbox.GetHeight() * (obj.m_health / 100.f));	//	health bar height
@@ -304,7 +307,7 @@ void Menu::RenderCache()
         for (auto& obj : cache.m_pickups)
         {
             auto ent_origin = obj.m_pos;
-            auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
+            const auto distance = cache.m_camera.modelView.Translate().Distance(ent_origin);
             if (distance > this->mESPDist)
                 continue;
 
@@ -313,7 +316,7 @@ void Menu::RenderCache()
             if (Engine::zdb::Tools::Transform::WorldToScreen(ent_origin, cache.m_camera, szScreen, &screen) == false)
                 continue;
 
-            ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
+            const ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
 
             //  SNAP
             if (this->bESPSnap)
@@ -378,7 +381,8 @@ void Menu::RenderAnalytics()
             "PCSX2 Update",
             "SOCOM Update",
             "Window Update",
-            "Total"
+            "Total",
+            "Camera Update"
         };
 
         for (int i = 0; i < 4; ++i)
@@ -400,7 +404,8 @@ void Menu::RenderAnalytics()
             : 0.0f;
 
         ImGui::Text(
-            "Camera WorldToView Matrix  %7.3f ms  (%7.1f Hz)",
+            "%-14s %7.3f ms  (%7.1f Hz)",
+            labels[4],
             cameraMs,
             cameraHz
         );
