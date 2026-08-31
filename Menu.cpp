@@ -166,6 +166,8 @@ void Menu::MainMenu()
         Engine::zdb::Patches::SetFramerate(this->mFPS);
     }
 
+    ImGui::Checkbox("SHOW DEBUG STATS", &this->bShowStats);
+
     ImGui::SetCursorPosY(height - ImGui::GetTextLineHeightWithSpacing() * 2);
     if (ImGui::Button("EXIT", ImGui::GetContentRegionAvail()))
     {
@@ -192,6 +194,10 @@ void Menu::SHROUD()
     }
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
+
+    if (this->bShowStats)
+        RenderAnalytics();
+
     ImGui::End();
 }
 
@@ -219,8 +225,12 @@ void Menu::HUD()
     auto center = wndw.GetCenter();
     auto top_center = ImVec2({ center.x, wndw.Min.y });
 
-    RenderCache();
-    RenderAnalytics();
+    if (this->bESP)
+        RenderCache();
+
+    if (this->bShowStats)
+        RenderAnalytics();
+    
     ImGui::End();
 }
 

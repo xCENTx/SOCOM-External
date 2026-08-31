@@ -10,6 +10,7 @@ class Menu
 public:
 	bool bRunning{ true };
 	bool bShowMenu{ true };
+	bool bShowStats{ false };
 	float m_refreshTimes[4]; // debug - PCSX2 - SOCOM - WINDOW - TOTAL
 
 public:	//	visuals
