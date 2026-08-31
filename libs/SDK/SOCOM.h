@@ -470,7 +470,8 @@ namespace Engine
 				char							pad_0018[4];				//0x0018
 				Vec3							origin;						//0x001C
 				i32_t							pSealTM;					//0x0028	* CZSealObject
-				char							pad_002C[148];				//0x002C
+				char							pad_002C[84];				//0x002C
+				Matrix4x4						m_Matrix;					//0x0080
 				i32_t							pSealCTRL;					//0x00C0	* CZSealCTRL
 				__int32							TeamID;						//0x00C4
 				char							pad_00C8[152];				//0x00C8
@@ -582,23 +583,45 @@ namespace Engine
 
 		namespace Tools
 		{
-			/* GET */
-			bool GetCameraMatrixSet(Structs::tag_ZCAM_MTX_SET& mtxSet);
-			bool GetCameraViewMatrix(Structs::ZViewModel& CameraView); 
-			bool GetCameraModelViewMatrix(Matrix16& ModelView);
-			bool GetCamera(Classes::zdb_CCamera& pCamera);
-			bool GetLocalSeal(Classes::CZSealBody& pSeal, i64_t* pAddr);
-			bool GetPlayers(std::vector<Classes::CZSealBody>* players);
-			bool GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr);
-			bool GetPickups(std::vector<Classes::CPickup>& pickups);
-			std::string GetWeaponName(const Enums::EWeapon& weapon);
-			std::string GetAmmoName(const Enums::EWeaponAmmo& ammo);
+			namespace Camera
+			{
+				bool GetCamera(Classes::zdb_CCamera& pCamera);
+				bool GetModelMtx(Matrix4x4& ModelView);
+				bool GetViewMtx(Structs::ZViewModel& CameraView); // GetModelMtx as human readable structure
+				bool GetMtxSet(Structs::tag_ZCAM_MTX_SET& mtxSet);
+				bool GetViewport(Structs::tag_RECT& viewport);
+			}
 
-			/* RENDER */
-			bool WorldToScreen(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out);
-			bool ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D);
-			bool ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out);
-			bool ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out);
+			namespace Transform
+			{
+				Vec3 WorldToView(const Vec3& worldPosition, const Matrix4x4& matrix);
+				Vec4 ViewToScreenSpace(const Vec3& view, const Matrix4x4& viewToScreen);
+				bool ScreenSpaceToNormalized(const Vec4& screenSpace, const Structs::tag_RECT& viewport, Vec2* out);
+				bool NormalizedToScreen(const Vec2& normalized, const Vec2& screenSize, Vec2* out);
+				bool WorldToScreen(const Vec3& worldPosition, Vec2* out);
+				bool WorldToScreen(const Vec3& worldPosition, const Vec2& szScreen, Vec2* out);
+				bool WorldToScreen(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, Vec2* out);
+				bool WorldToScreen(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out);
+				bool ProjectWorldToScreenFromModelMtx(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Matrix4x4& modelMatrix, const Vec2& szScreen, Vec2* out);
+				bool ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D);
+				bool ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, Vec2* out);
+				bool ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out);
+				bool ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out);
+			}
+
+			namespace Entity
+			{
+				bool GetLocalSeal(Classes::CZSealBody& pSeal, i64_t* pAddr);
+				bool GetPlayers(std::vector<Classes::CZSealBody>* players);
+				bool GetPickups(std::vector<Classes::CPickup>& pickups);
+			}
+			
+			namespace Weapon
+			{
+				bool GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr);
+				std::string GetWeaponName(const Enums::EWeapon& weapon);
+				std::string GetAmmoName(const Enums::EWeaponAmmo& ammo);
+			}
 		}
 
 		namespace Patches
@@ -613,6 +636,9 @@ namespace Engine
 
 			/* MISSION */
 			void ForceCompleteMission();
+
+			/* GAME */
+			void SetFramerate();
 
 			/* CUSTOM */
 			void SetAmmoProperties(const int& weaponIndex, Classes::CZAmmo& newAmmoType);
@@ -669,6 +695,8 @@ public:
 public:
 	std::mutex m_cacheMutex;
 	SGlobalSnapshot m_cache;
+	__int32 m_tick{ 0 };
+	float m_cameraRefreshTime[2]{ 0.0f };
 
 public:
 	void Update();
