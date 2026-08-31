@@ -243,31 +243,36 @@ namespace Engine
 			}
 
 			/* */
-			Vec3 Transform::WorldToView(const Vec3& worldPosition, const Matrix4x4& matrix)
+			Vec4 Transform::WorldToView(const Vec3& worldPosition, const Matrix4x4& worldToView)
 			{
-				// return matrix.TransformPoint(worldPosition);
+				return worldToView.TransformPoint(worldPosition);
+			}
+
+			/* */
+			Vec3 Transform::WorldToViewFromModel(const Vec3& worldPosition, const Matrix4x4& modelMatrix)
+			{
 				const Vec3 cam_right{
-					matrix.m[0][0],
-					matrix.m[0][1],
-					matrix.m[0][2]
+					modelMatrix.m[0][0],
+					modelMatrix.m[0][1],
+					modelMatrix.m[0][2]
 				};
 
 				const Vec3 cam_up{
-					matrix.m[1][0],
-					matrix.m[1][1],
-					matrix.m[1][2]
+					modelMatrix.m[1][0],
+					modelMatrix.m[1][1],
+					modelMatrix.m[1][2]
 				};
 
 				const Vec3 cam_forward{
-					matrix.m[2][0],
-					matrix.m[2][1],
-					matrix.m[2][2]
+					modelMatrix.m[2][0],
+					modelMatrix.m[2][1],
+					modelMatrix.m[2][2]
 				};
 
 				const Vec3 cam_pos{
-					matrix.m[3][0],
-					matrix.m[3][1],
-					matrix.m[3][2]
+					modelMatrix.m[3][0],
+					modelMatrix.m[3][1],
+					modelMatrix.m[3][2]
 				};
 
 				Vec3 heading = worldPosition - cam_pos;
@@ -280,7 +285,7 @@ namespace Engine
 			}
 
 			/* */
-			Vec4 Transform::ViewToScreenSpace(const Vec3& view, const Matrix4x4& viewToScreen)
+			Vec4 Transform::ViewToScreenSpace(const Vec4& view, const Matrix4x4& viewToScreen)
 			{
 				return viewToScreen.TransformPoint(view);
 			}
@@ -356,10 +361,10 @@ namespace Engine
 			bool Transform::WorldToScreen(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, Vec2* out)
 			{
 				/* transform world point to view space */
-				Vec4 view = camera.m_mtxSet.mtxWorldToView.TransformPoint(worldLocation);
+				Vec4 view = WorldToView(worldLocation, camera.m_mtxSet.mtxWorldToView);
 
 				/* get native screen space (GS) */
-				Vec4 gs = camera.m_mtxSet.mtxViewToScreen.TransformPoint(view);
+				Vec4 gs = ViewToScreenSpace(view, camera.m_mtxSet.mtxViewToScreen);
 
 				/* screen space to normalized */
 				Vec2 result;
@@ -374,17 +379,11 @@ namespace Engine
 			/* */
 			bool Transform::WorldToScreen(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out)
 			{
-				Vec2 result{};
-				if (WorldToScreen(worldLocation, camera, &result) == false)
+				Vec2 normalized{};
+				if (WorldToScreen(worldLocation, camera, &normalized) == false)
 					return false;
 
-				Vec2 resulta{};
-				if (NormalizedToScreen(result, szScreen, &resulta) == false)
-					return false;
-
-				*out = resulta;
-
-				return true;
+				return NormalizedToScreen(normalized, szScreen, out);
 			}
 
 			/* */

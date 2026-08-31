@@ -595,8 +595,9 @@ namespace Engine
 
 			namespace Transform
 			{
-				Vec3 WorldToView(const Vec3& worldPosition, const Matrix4x4& matrix);
-				Vec4 ViewToScreenSpace(const Vec3& view, const Matrix4x4& viewToScreen);
+				Vec4 WorldToView(const Vec3& worldPosition, const Matrix4x4& worldToView);
+				Vec3 WorldToViewFromModel(const Vec3& worldPosition, const Matrix4x4& modelMatrix);
+				Vec4 ViewToScreenSpace(const Vec4& view, const Matrix4x4& viewToScreen);
 				bool ScreenSpaceToNormalized(const Vec4& screenSpace, const Structs::tag_RECT& viewport, Vec2* out);
 				bool NormalizedToScreen(const Vec2& normalized, const Vec2& screenSize, Vec2* out);
 				bool WorldToScreen(const Vec3& worldPosition, Vec2* out);
