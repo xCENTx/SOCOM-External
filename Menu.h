@@ -10,7 +10,7 @@ class Menu
 public: // menu controls
 	bool bRunning{ true };
 	bool bShowMenu{ true };
-	bool bShowStats{ false };
+	bool bShowStats{ true };
 
 public:	//	visual controls
 	bool bESP{ false };
