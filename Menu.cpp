@@ -165,6 +165,7 @@ void Menu::MainMenu()
     {
         Engine::zdb::Patches::SetFramerate(this->mFPS);
     }
+    ImGui::SliderFloat("DEBUG: Prediction MS", &this->m_predictionMS, 30.f, 60.f);
 
     ImGui::Checkbox("SHOW DEBUG STATS", &this->bShowStats);
 
@@ -288,11 +289,74 @@ void Menu::RenderCache()
                 GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(52, 98, 235, 100));
             }
         }
+        
     }
+
+
+    /* static test */
+        
+    //  static Engine::Vec3 test_ent_origin = {
+    //      1707.88208,
+    //      17.9695320,
+    //      830.514160
+    //  };
+    //  {
+    //      static Engine::Vec2 previousScreen{};
+    //      static Engine::Vec2 screenVelocity{};
+    //      static auto previousTime = std::chrono::steady_clock::now();
+    //      static bool initialized = false;
+    //  
+    //      Engine::Vec2 currentScreen;
+    //      if (Engine::zdb::Tools::Transform::WorldToScreen(test_ent_origin, cache.m_camera, szScreen, &currentScreen))
+    //      {
+    //          const auto distance = cache.m_camera.modelView.Translate().Distance(test_ent_origin);
+    //          const auto currentTime = std::chrono::steady_clock::now();
+    //  
+    //          if (!initialized)
+    //          {
+    //              previousScreen = currentScreen;
+    //              previousTime = currentTime;
+    //              initialized = true;
+    //          }
+    //  
+    //          if (currentScreen.x != previousScreen.x || currentScreen.y != previousScreen.y)
+    //          {
+    //              const float dt = std::chrono::duration<float>(currentTime - previousTime).count();
+    //  
+    //              if (dt > 0.0f)
+    //              {
+    //                  screenVelocity = (currentScreen - previousScreen) / dt;
+    //              }
+    //  
+    //              previousScreen = currentScreen;
+    //              previousTime = currentTime;
+    //          }
+    //  
+    //          const float predictionTime = this->m_predictionMS / 1000.0f;
+    //  
+    //          const Engine::Vec2 predictedScreen = currentScreen - screenVelocity * predictionTime;
+    //  
+    //          GUI::CleanCircle( ImVec2(predictedScreen.x, predictedScreen.y) + screen_pos, IM_COL32_RED, 10.f );
+    //  
+    //          GUI::CleanCircle( ImVec2(currentScreen.x, currentScreen.y) + screen_pos, IM_COL32_GREEN, 10.f );
+    //  
+    //          char buf_dist[16];
+    //          sprintf_s(buf_dist, "[%.0fm]", distance);
+    //          std::string nameDist(buf_dist);
+    //          std::string nameEnt = "TEST PREDICTION";
+    //          ImVec2 szTextDist = ImGui::CalcTextSize(nameDist.c_str());
+    //          ImVec2 szTextName = ImGui::CalcTextSize(nameEnt.c_str());
+    //          ImVec2 posTextName = ImVec2(predictedScreen.x - (szTextName.x * .5f), predictedScreen.y);
+    //          ImVec2 posTextDist = ImVec2(predictedScreen.x - (szTextDist.x * .5f), predictedScreen.y + (szTextName.y * 1.5f));
+    //          GUI::DrawBGText(posTextName, IM_COL32_WHITE, nameEnt, IM_COL32(235, 98, 52, 100));
+    //          GUI::DrawText_(posTextDist, IM_COL32_WHITE, nameDist);
+    //      }
+    //  }
 
     /* PLAYERS */
     if (this->bESPPlayers)
     {
+        bool bInit = false;
         for (auto& obj : cache.m_players)
         {
             if (!obj.m_bAlive)
@@ -314,7 +378,13 @@ void Menu::RenderCache()
                 Engine::zdb::Tools::Transform::WorldToScreen(ent_headOrigin, cache.m_camera, szScreen, &screenHead) == false
                 )
                 continue;
-
+            
+            //if (!bInit)
+            //{
+            //    test_ent_origin = ent_origin;
+            //    bInit = true;
+            //    //  continue;
+            //}
             const ImVec2 pos = screen_pos + ImVec2(screen.x, screen.y);
             const ImVec2 head_pos = screen_pos + ImVec2(screenHead.x, screenHead.y);
             const float corner_height = abs(head_pos.y - pos.y);		                                    //	Width

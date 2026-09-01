@@ -12,6 +12,7 @@ public:
 	bool bShowMenu{ true };
 	bool bShowStats{ false };
 	float m_refreshTimes[4]; // debug - PCSX2 - SOCOM - WINDOW - TOTAL
+	float m_predictionMS{ 60.f };
 
 public:	//	visuals
 	bool bESP{ false };
