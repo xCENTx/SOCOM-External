@@ -11,7 +11,43 @@ struct pcsx2PROCESSINFO : public PROCESSINFO64
 	i64_t dwEEBase{ 0 };		//	
 	i64_t dwIOPBase{ 0 };		//	
 	i64_t dwVUBase{ 0 };		//	
+	i64_t dwSPRBase{ 0 };	//
 }; typedef pcsx2PROCESSINFO pcsx2Info_t;
+
+/* https://github.com/PCSX2/pcsx2/blob/47931a06890ae7ee70f7e3019ad1bdcba8a07c32/pcsx2/MemoryTypes.h#L32-L48 */
+namespace PS2MemSize
+{
+	static const int MainRam = (1024 * 1024) * 32;	// 32MB
+	static const int ExtraRam = (1024 * 1024) * 96; // 96MB	// devkit
+	static const int TotalRam = MainRam + ExtraRam; // 128MB
+	static const int Rom = (1024 * 1024) * 4;		// 4MB
+	static const int Rom1 = (1024 * 1024) * 4;		// 4MB	// dvd player
+	static const int Rom2 = (1024 * 1024) * 4;		// 4MB	// chinese extensions
+
+	static const int IopRam = (1024 * 1024) * 2;	// 2MB
+	static const int IopHardware = 1 * 64;	// 64KB
+
+	static const int Scratch = 1 * 16; // 16KB
+
+	static const int Zero = (1024 * 1) * 1;		// 1MB
+}
+struct EEVirtualMemory
+{
+	unsigned __int8 Main[PS2MemSize::MainRam];			// 32MB
+	unsigned __int8 Extra[PS2MemSize::ExtraRam];		// 96MB
+	unsigned __int8 Scratch[PS2MemSize::Scratch];		// 16KB
+	unsigned __int8 ROM[PS2MemSize::Rom];				// Boot rom (4MB)
+	unsigned __int8 ROM1[PS2MemSize::Rom1];				// DVD player (4MB)
+	unsigned __int8 ROM2[PS2MemSize::Rom2];				// Chinese extensions
+
+	// Two 1 megabyte (max DMA) buffers for reading and writing to high memory (>32MB).
+	// Such accesses are not documented as causing bus errors but as the memory does
+	// not exist, reads should continue to return 0 and writes should be discarded.
+	// Probably.
+
+	unsigned __int8 ZeroRead[PS2MemSize::Zero];			// 1MB
+	unsigned __int8 ZeroWrite[PS2MemSize::Zero];		// 1MB	
+};
 
 class pcsx2Memory : public exMemory
 {
@@ -46,15 +82,8 @@ public:
 	/**/
 	inline const i64_t& GetVUMemory() const { return pcxInfo.dwVUBase; }
 
-public:
 	/**/
-	inline bool GetPSXAddress(const unsigned int& offset, i64_t* lpResult);
-	
-	/**/
-	inline i64_t GetPSXAddress(const unsigned int& offset);
-	
-	/**/
-	inline i64_t ReadPSXPointerChain(const i64_t& addr, std::vector<unsigned int>& offsets, i64_t* lpResult = nullptr);
+	inline const i64_t& GetSPRMemory() const { return pcxInfo.dwSPRBase; }
 };
 
 
@@ -143,6 +172,7 @@ namespace Engine
 			constexpr auto gMission{ 0x4D4880 };		//	black label
 			constexpr auto gCamera{ 0x51E778 };			//	black label
 			constexpr auto gPickups{ 0x51E970 };		//	black label - ZArray<CPickup*>
+			constexpr auto gFPS{ 0x48CF60 };			//	black label - int
 		}
 
 		namespace Enums
@@ -439,7 +469,13 @@ namespace Engine
 				Vec2							mCos;						//0x01C8
 				Vec2							mTan;						//0x01D0
 				Vec2							mCot;						//0x01D8
-				char							pad_01E0[224];				//0x01E0
+				char							pad_01E0[176];				//0x01E0
+				float							m_scrZ;						//0x0290
+				char							pad_0294[28];				//0x0294
+				unsigned int					m_AboveMaterial;			//0x02B0
+				float							m_landmark_far_plane;		//0x02B4
+				float							m_RangeScale;				//0x02B8
+				char							pad_02BC[4];				//0x02BC
 				tag_ZCAM_MTX_SET				m_mtxSet;					//0x02C0
 				uint16_t						m_scratch;					//0x03C0
 				char							pad_03C2[14];				//0x03C2
@@ -449,7 +485,10 @@ namespace Engine
 				Vec2							m_screenOffset;				//0x0450
 				tag_RECT						m_screen;					//0x0458
 				Vec2							m_screenConstant;			//0x0468
-				char							pad_0470[64];				//0x0470
+				float							m_Zmin;						//0x0470
+				float							m_Zmax;						//0x0474
+				char							pad_0478[160];				//0x0478
+
 			};    //Size: 0x079C
 
 			class CZSealObject
@@ -470,7 +509,8 @@ namespace Engine
 				char							pad_0018[4];				//0x0018
 				Vec3							origin;						//0x001C
 				i32_t							pSealTM;					//0x0028	* CZSealObject
-				char							pad_002C[148];				//0x002C
+				char							pad_002C[84];				//0x002C
+				Matrix4x4						m_Matrix;					//0x0080
 				i32_t							pSealCTRL;					//0x00C0	* CZSealCTRL
 				__int32							TeamID;						//0x00C4
 				char							pad_00C8[152];				//0x00C8
@@ -582,23 +622,55 @@ namespace Engine
 
 		namespace Tools
 		{
-			/* GET */
-			bool GetCameraMatrixSet(Structs::tag_ZCAM_MTX_SET& mtxSet);
-			bool GetCameraViewMatrix(Structs::ZViewModel& CameraView); 
-			bool GetCameraModelViewMatrix(Matrix16& ModelView);
-			bool GetCamera(Classes::zdb_CCamera& pCamera);
-			bool GetLocalSeal(Classes::CZSealBody& pSeal, i64_t* pAddr);
-			bool GetPlayers(std::vector<Classes::CZSealBody>* players);
-			bool GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr);
-			bool GetPickups(std::vector<Classes::CPickup>& pickups);
-			std::string GetWeaponName(const Enums::EWeapon& weapon);
-			std::string GetAmmoName(const Enums::EWeaponAmmo& ammo);
+			namespace Camera
+			{
+				bool GetCamera(Classes::zdb_CCamera& pCamera);
+				bool GetModelMtx(Matrix4x4& ModelView);
+				bool GetViewMtx(Structs::ZViewModel& CameraView); // GetModelMtx as human readable structure
+				bool GetMtxSet(Structs::tag_ZCAM_MTX_SET& mtxSet);
+				bool GetViewport(Structs::tag_RECT& viewport);
+			}
 
-			/* RENDER */
-			bool WorldToScreen(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out);
-			bool ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D);
-			bool ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out);
-			bool ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out);
+			namespace Transform
+			{
+				Matrix4x4 BuildViewToClip(const zdb::Classes::zdb_CCamera& camera);
+				Matrix4x4 BuildViewToScreen(const zdb::Classes::zdb_CCamera& camera);
+				Vec4 WorldToView(const Vec3& worldPosition, const Matrix4x4& worldToView);
+				Vec3 WorldToViewFromModel(const Vec3& worldPosition, const Matrix4x4& modelMatrix);
+				Vec4 ViewToScreenSpace(const Vec4& view, const Matrix4x4& viewToScreen);
+				bool ScreenSpaceToNormalized(const Vec4& screenSpace, const Structs::tag_RECT& viewport, Vec2* out);
+				bool NormalizedToScreen(const Vec2& normalized, const Vec2& screenSize, Vec2* out);
+				bool WorldToScreen(const Vec3& worldPosition, Vec2* out);
+				bool WorldToScreen(const Vec3& worldPosition, const Vec2& szScreen, Vec2* out);
+				bool WorldToScreen(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, Vec2* out);
+				bool WorldToScreen(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out);
+
+				namespace Debug
+				{
+					bool ProjectWorldToScreenFromModelMtx(const Vec3& worldPosition, zdb::Classes::zdb_CCamera& camera, const Matrix4x4& modelMatrix, const Vec2& szScreen, Vec2* out);
+					bool ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D);
+					bool ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out);
+				}
+			}
+
+			namespace Entity
+			{
+				bool GetLocalSeal(Classes::CZSealBody& pSeal, i64_t* pAddr);
+				bool GetPlayers(std::vector<Classes::CZSealBody>* players);
+				bool GetPickups(std::vector<Classes::CPickup>& pickups);
+			}
+			
+			namespace Weapon
+			{
+				bool GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr);
+				std::string GetWeaponName(const Enums::EWeapon& weapon);
+				std::string GetAmmoName(const Enums::EWeaponAmmo& ammo);
+			}
+
+			namespace Game
+			{
+				int GetFramerate();
+			}
 		}
 
 		namespace Patches
@@ -613,6 +685,9 @@ namespace Engine
 
 			/* MISSION */
 			void ForceCompleteMission();
+
+			/* GAME */
+			void SetFramerate(int frames = 0);
 
 			/* CUSTOM */
 			void SetAmmoProperties(const int& weaponIndex, Classes::CZAmmo& newAmmoType);
@@ -659,6 +734,7 @@ public:
 	struct SGlobalSnapshot
 	{
 		bool m_bValid{ false };
+		_int64 m_EE{ 0 };
 		SGameContext m_ctx;
 		SLocalPlayer m_localPlayer;
 		std::vector<SImGuiPlayer> m_players;
@@ -669,6 +745,8 @@ public:
 public:
 	std::mutex m_cacheMutex;
 	SGlobalSnapshot m_cache;
+	__int32 m_tick{ 0 };
+	float m_cameraRefreshTime[2]{ 0.0f };
 
 public:
 	void Update();

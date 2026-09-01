@@ -12,63 +12,9 @@ namespace Engine
 
 		namespace Tools
 		{
-			/* GET */
-			bool GetCameraMatrixSet(Structs::tag_ZCAM_MTX_SET& mtxSet)
-			{
-				__int64 eemem = g_PSXMemory.GetEEMemory();
-				if (!eemem)
-					return false;
 
-				auto pCamera = g_PSXMemory.Read<__int32>(eemem + Offsets::gCamera);
-				if (!pCamera)
-					return false;
-				
-				auto camera = g_PSXMemory.Read<Classes::zdb_CCamera>(eemem + pCamera);
-
-				mtxSet = camera.m_mtxSet;
-				
-				return true;
-			}
-
-			bool GetCameraViewMatrix(Structs::ZViewModel& CameraView)
-			{
-				__int64 eemem = g_PSXMemory.GetEEMemory();
-				if (!eemem)
-					return false;
-
-				auto pCamera = g_PSXMemory.Read<__int32>(eemem + Offsets::gAppCamera);
-				if (!pCamera)
-					return false;
-
-				auto camera = g_PSXMemory.Read<Classes::CAppCamera>(eemem + pCamera);
-				if (!camera.pCamera)
-					return false;
-
-				CameraView = g_PSXMemory.Read<Structs::ZViewModel>(eemem + camera.pCamera);
-
-				return true;
-			}
-
-			bool GetCameraModelViewMatrix(Matrix16 & ModelView)
-			{
-				__int64 eemem = g_PSXMemory.GetEEMemory();
-				if (!eemem)
-					return false;
-
-				auto pCamera = g_PSXMemory.Read<__int32>(eemem + Offsets::gAppCamera);
-				if (!pCamera)
-					return false;
-
-				auto camera = g_PSXMemory.Read<Classes::CAppCamera>(eemem + pCamera);
-				if (!camera.pCamera)
-					return false;
-
-				ModelView = g_PSXMemory.Read<Matrix16>(eemem + camera.pCamera);
-
-				return true;
-			}
-
-			bool GetCamera(Classes::zdb_CCamera& camera)
+			/* */
+			bool Camera::GetCamera(Classes::zdb_CCamera& camera)
 			{
 				__int64 eemem = g_PSXMemory.GetEEMemory();
 				if (!eemem)
@@ -79,11 +25,65 @@ namespace Engine
 					return false;
 
 				camera = g_PSXMemory.Read<Classes::zdb_CCamera>(eemem + pCamera);
-				
+
 				return true;
 			}
 
-			bool GetLocalSeal(Classes::CZSealBody& seal, i64_t* pSealAddr)
+			/* */
+			bool Camera::GetModelMtx(Matrix4x4& ModelView)
+			{
+				Classes::zdb_CCamera camera{};
+				if (!GetCamera(camera))
+					return false;
+
+				ModelView = camera.modelView;
+
+				return true;
+			}
+
+			/* */
+			bool Camera::GetViewMtx(Structs::ZViewModel& CameraView)
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return false;
+
+				auto pCamera = g_PSXMemory.Read<__int32>(eemem + Offsets::gCamera);
+				if (!pCamera || pCamera == Offsets::gCamera)
+					return false;
+
+				CameraView = g_PSXMemory.Read<Classes::ZViewModel>(eemem + pCamera);
+
+				return true;
+			}
+
+			/* */
+			bool Camera::GetMtxSet(Structs::tag_ZCAM_MTX_SET& mtxSet)
+			{
+				Classes::zdb_CCamera camera{};
+				if (!GetCamera(camera))
+					return false;
+
+				mtxSet = camera.m_mtxSet;
+
+				return true;
+			}
+
+			/* */
+			bool Camera::GetViewport(Structs::tag_RECT& viewport)
+			{
+
+				Classes::zdb_CCamera camera{};
+				if (!GetCamera(camera))
+					return false;
+
+				viewport = camera.m_screen;
+
+				return true;
+			}
+
+			/* */
+			bool Entity::GetLocalSeal(Classes::CZSealBody& seal, i64_t* pSealAddr)
 			{
 				//	get eemem
 				__int64 eemem = g_PSXMemory.GetEEMemory();
@@ -102,7 +102,8 @@ namespace Engine
 				return true;
 			}
 
-			bool GetPlayers(std::vector<Classes::CZSealBody>*players)
+			/* */
+			bool Entity::GetPlayers(std::vector<Classes::CZSealBody>*players)
 			{
 				std::vector<Classes::CZSealBody> seals;
 
@@ -136,36 +137,8 @@ namespace Engine
 				return players->size() > 0;
 			}
 
-			bool GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr)
-			{
-				__int64 eemem = g_PSXMemory.GetEEMemory();
-				if (!eemem)
-					return false;
-
-				i64_t sealAddr = 0;
-				Classes::CZSealBody czSeal;
-				if (!Tools::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
-					return false;
-
-				const auto szWeaponArray = czSeal.MaxWeaponIndex;
-				if (weaponIndex >= szWeaponArray)
-					return false;
-
-				const auto& pBaseWeapon = sealAddr + offsetof(Classes::CZSealBody, pPrimaryWeapon);
-				if (pBaseWeapon <= sealAddr)
-					return false;
-
-				const auto& pWeapon = pBaseWeapon + (weaponIndex * 0x4);
-				if (!pWeapon)
-					return false;
-
-				weapon = g_PSXMemory.Read<Classes::CZWeapon>(eemem + pWeapon);
-				*pWeaponAddr = eemem + pWeapon;
-
-				return true;
-			}
-
-			bool GetPickups(std::vector<Classes::CPickup>& pickups)
+			/* */
+			bool Entity::GetPickups(std::vector<Classes::CPickup>& pickups)
 			{
 				std::vector<Classes::CPickup> container;
 
@@ -190,18 +163,49 @@ namespace Engine
 					}
 
 					it = g_PSXMemory.Read<Structs::ZIterator>(eemem + it.next);
-				
+
 				} while (it.data != end.data);
 
 				if (container.empty())
 					return false;
 
 				pickups = std::move(container);
-				
+
 				return true;
 			}
 
-			std::string GetWeaponName(const Enums::EWeapon& weapon)
+			/* */
+			bool Weapon::GetWeapon(const int& weaponIndex, Classes::CZWeapon& weapon, i64_t* pWeaponAddr)
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return false;
+
+				i64_t sealAddr = 0;
+				Classes::CZSealBody czSeal;
+				if (!Tools::Entity::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
+					return false;
+
+				const auto szWeaponArray = czSeal.MaxWeaponIndex;
+				if (weaponIndex >= szWeaponArray)
+					return false;
+
+				const auto& pBaseWeapon = sealAddr + offsetof(Classes::CZSealBody, pPrimaryWeapon);
+				if (pBaseWeapon <= sealAddr)
+					return false;
+
+				const auto& pWeapon = pBaseWeapon + (weaponIndex * 0x4);
+				if (!pWeapon)
+					return false;
+
+				weapon = g_PSXMemory.Read<Classes::CZWeapon>(eemem + pWeapon);
+				*pWeaponAddr = eemem + pWeapon;
+
+				return true;
+			}
+
+			/* */
+			std::string Weapon::GetWeaponName(const Enums::EWeapon& weapon)
 			{
 				std::string result = "";
 				__int64 eemem = g_PSXMemory.GetEEMemory();
@@ -219,7 +223,8 @@ namespace Engine
 				return result;
 			}
 
-			std::string GetAmmoName(const Enums::EWeaponAmmo& ammo)
+			/* */
+			std::string Weapon::GetAmmoName(const Enums::EWeaponAmmo& ammo)
 			{
 				std::string result = "";
 				__int64 eemem = g_PSXMemory.GetEEMemory();
@@ -237,46 +242,290 @@ namespace Engine
 				return result;
 			}
 
+			/* */
+			int Game::GetFramerate()
+			{
+				const int default_frame = 30;
 
-			/* RENDER */
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return default_frame;
+
+				const i64_t& pFPS = eemem + Offsets::gFPS;
+				if (!pFPS || pFPS == Offsets::gFPS)
+					return default_frame;
+
+				return g_PSXMemory.Read<int>(pFPS);
+			}
+
+			Matrix4x4 Transform::BuildViewToClip(const zdb::Classes::zdb_CCamera& camera)
+			{
+				/*
+				
+				* ViewToClip
+					1.428			0				0				0
+					0				1.020			0				0
+					0				0				1				1
+					0				0				-8.002			0
+
+				crucial components
+				key
+				 - [0][0] = 457.007 / 320 = 1.428146875
+				 - [1][1] = 457.007 / 448 = 1.020105
+				*/
+
+				const float viewportWidth = camera.m_screen.right - camera.m_screen.left;
+				const float viewportHeight = camera.m_screen.bottom - camera.m_screen.top;
+
+				const float viewToClip_00 = camera.m_scrZ / (viewportWidth / 2) * camera.m_screenAspect.x;
+				const float viewToClip_11 = camera.m_scrZ / viewportHeight * camera.m_screenAspect.y;
+
+				return {
+					viewToClip_00, 0.0f, 0.0f, 0.0f,
+					0.0f, viewToClip_11, 1.0f, 1.0f,
+					0.0f, 0.0f, 0.0f, 0.0f
+				};
+			}
+
+			Matrix4x4 Transform::BuildViewToScreen(const zdb::Classes::zdb_CCamera& camera)
+			{
+				/*
+				* ViewToScreen
+					457.007			0				0				0
+					0				457.007			0				0
+					2048.000		2048.000		-3.722			1
+					0				0				262154.900		0
+
+				crucial components
+				 - scaleX	= 457.007	[0][0]
+				 - scaleY	= 457.007	[1][1]
+				 - centerX	=	2048	[2][0]
+				 - centerY	=	2048	[2][1]
+				 - depth	= -3.722
+				 - ZMapping = 262154.900
+
+				key
+				 - scale = m_scrZ * m_screenAspect
+				 - center = m_screenCenter + m_screenOffset
+				*/
+
+				const float scaleX = camera.m_scrZ * camera.m_screenAspect.x;
+				const float scaleY = camera.m_scrZ * camera.m_screenAspect.y;
+
+				const float centerX = camera.m_screenCenter.x + camera.m_screenOffset.x;
+				const float centerY = camera.m_screenCenter.y + camera.m_screenOffset.y;
+
+				/*
+					Depth mapping still unknown.
+
+					These values do not affect WorldToScreen because
+					ScreenSpaceToNormalized only consumes x, y, and w.
+				*/
+				const float depthScale = 1.f; // unknown how to obtain , seems to come from viewtoclip
+				const float depthBias = camera.m_Zmax * (camera.m_camera_params.m_near_plane/* + depthScale*/); // 65535.0000 * (4.00000000) = 262140.000
+
+				return {
+					scaleX, 0.0f, 0.0f, 0.0f,
+					0.0f, scaleY, 0.0f, 0.0f,
+					centerX, centerY, depthScale, 1.0f,
+					0.0f, 0.0f, depthBias, 0.0f
+				};
+			}
 
 			/* */
-			bool WorldToScreen(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out)
+			Vec4 Transform::WorldToView(const Vec3& worldPosition, const Matrix4x4& worldToView)
 			{
-				/* transform world point to view space */
-				auto view = camera.m_mtxSet.mtxWorldToView.TransformPoint(worldLocation);
+				return worldToView.TransformPoint(worldPosition);
+			}
 
-				/* get native screen space (GS) */
-				auto gs = camera.m_mtxSet.mtxViewToScreen.TransformPoint(view);
-
-				/* check if behind camera */
-				if (gs.w <= 0.001f)
-					return false;
-
-				float gsX = gs.x / gs.w;
-				float gsY = gs.y / gs.w;
-
-				float nativeWidth = camera.m_screen.right - camera.m_screen.left;
-				float nativeHeight = camera.m_screen.bottom - camera.m_screen.top;
-
-				/* convert native ps2 viewport to normalized [0, 1] */
-				float u = (gsX - camera.m_screen.left) / nativeWidth;
-				float v = (gsY - camera.m_screen.top) / nativeHeight;
-
-				/* scale */
-				Vec2 result =
-				{
-					u * szScreen.x,
-					v * szScreen.y
+			/* */
+			Vec3 Transform::WorldToViewFromModel(const Vec3& worldPosition, const Matrix4x4& modelMatrix)
+			{
+				const Vec3 cam_right{
+					modelMatrix.m[0][0],
+					modelMatrix.m[0][1],
+					modelMatrix.m[0][2]
 				};
 
-				if (result.x < 0.0f ||
-					result.y < 0.0f ||
-					result.x > szScreen.x ||
-					result.y > szScreen.y)
+				const Vec3 cam_up{
+					modelMatrix.m[1][0],
+					modelMatrix.m[1][1],
+					modelMatrix.m[1][2]
+				};
+
+				const Vec3 cam_forward{
+					modelMatrix.m[2][0],
+					modelMatrix.m[2][1],
+					modelMatrix.m[2][2]
+				};
+
+				const Vec3 cam_pos{
+					modelMatrix.m[3][0],
+					modelMatrix.m[3][1],
+					modelMatrix.m[3][2]
+				};
+
+				Vec3 heading = worldPosition - cam_pos;
+
+				return {
+					heading.dot(cam_right),
+					-heading.dot(cam_up),
+					-heading.dot(cam_forward)
+				};
+			}
+
+			/* */
+			Vec4 Transform::ViewToScreenSpace(const Vec4& view, const Matrix4x4& viewToScreen)
+			{
+				return viewToScreen.TransformPoint(view);
+			}
+
+			/* */
+			bool Transform::ScreenSpaceToNormalized(const Vec4& screenSpace, const Structs::tag_RECT& viewport, Vec2* out)
+			{
+				/* check if behind camera */
+				if (screenSpace.w <= 0.001f)
+					return false;
+
+				const float x = screenSpace.x / screenSpace.w;
+				const float y = screenSpace.y / screenSpace.w;
+
+				const float width = viewport.right - viewport.left;
+				const float height = viewport.bottom - viewport.top;
+
+				if (width <= 0.0f || height <= 0.0f)
+					return false;
+
+				const Vec2 result
+				{
+					(x - viewport.left) / width,
+					(y - viewport.top) / height
+				};
+
+				if (result.x < 0.0f || result.x > 1.0f ||
+					result.y < 0.0f || result.y > 1.0f)
 				{
 					return false;
 				}
+
+				*out = result;
+				return true;
+			}
+
+			/* */
+			bool Transform::NormalizedToScreen(const Vec2& normalized, const Vec2& screenSize, Vec2* out)
+			{
+				Vec2 result{ normalized };
+				if (result.x < 0.0f || result.x > 1.0f ||
+					result.y < 0.0f || result.y > 1.0f)
+				{
+					return false;
+				}
+
+				*out = (result *= screenSize);
+
+				return true;
+			}
+
+			/* */
+			bool Transform::WorldToScreen(const Vec3& worldLocation, Vec2* out)
+			{
+				Classes::zdb_CCamera camera;
+				if (!Tools::Camera::GetCamera(camera))
+					return false;
+
+				return WorldToScreen(worldLocation, camera, out);
+			}
+
+			/* */
+			bool Transform::WorldToScreen(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out)
+			{
+				Classes::zdb_CCamera camera;
+				if (!Tools::Camera::GetCamera(camera))
+					return false;
+
+				return WorldToScreen(worldLocation, camera, szScreen, out);
+			}
+
+
+			/*
+			 * 0 = current camera matrix
+			 * 1 = previous camera update
+			 * 2 = two updates ago
+			 * 3 = three updates ago
+			 */
+			bool GetMatrixFromHistory(const zdb::Classes::zdb_CCamera& camera, const int& index, Matrix4x4* result)
+			{
+				/// no need for scratchpad matrix
+				//	if (camera.m_scratch < 0x3E60)
+				//		return false;
+				//	
+				//	const Matrix4x4 currentMatrix = g_PSXMemory.Read<Matrix4x4>( g_PSXMemory.GetSPRMemory() + camera.m_scratch + 0x20 );
+
+				if (!result)
+					return false;
+
+				const int frameIndex = (index >= 0 && index < 4) ? index : 0;
+				const Matrix4x4 currentMatrix = camera.m_mtxSet.mtxWorldToView * camera.m_mtxSet.mtxViewToScreen;
+
+				static Matrix4x4 history[4]{};
+				static Matrix4x4 previousMatrix{};
+				static bool initialized = false;
+
+				/*
+				* init matrix history
+				*/
+				if (!initialized)
+				{
+					previousMatrix = currentMatrix;
+
+					history[0] = currentMatrix;
+					history[1] = currentMatrix;
+					history[2] = currentMatrix;
+					history[3] = currentMatrix;
+
+					initialized = true;
+				}
+
+				/*
+				 * Only advance history when the WorldToScreen matrix actually changes.
+				 */
+				if (std::memcmp( &currentMatrix, &previousMatrix, sizeof(Matrix4x4)) != 0)
+				{
+					history[3] = history[2];
+					history[2] = history[1];
+					history[1] = history[0];
+					history[0] = currentMatrix;
+
+					previousMatrix = currentMatrix;
+				}
+
+				*result = history[frameIndex];
+
+				return true;
+			}
+
+			/* */
+			bool Transform::WorldToScreen(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, Vec2* out)
+			{
+				Vec4 gs;
+				Matrix4x4 mtxWorldToScreen;
+				if (GetMatrixFromHistory(camera, 2, &mtxWorldToScreen) == false)
+				{
+					/* transform world point to view space */
+					Vec4 view = WorldToView(worldLocation, camera.m_mtxSet.mtxWorldToView);
+
+					/* get native screen space (GS) */
+					gs = ViewToScreenSpace(view, camera.m_mtxSet.mtxViewToScreen);
+
+				}
+				else
+					gs = mtxWorldToScreen.TransformPoint(worldLocation);
+
+				/* screen space to normalized */
+				Vec2 result;
+				if (ScreenSpaceToNormalized(gs, camera.m_screen, &result) == false)
+					return false;
 
 				*out = result;
 
@@ -284,7 +533,33 @@ namespace Engine
 			}
 
 			/* */
-			bool ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D)
+			bool Transform::WorldToScreen(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, const Vec2& szScreen, Vec2* out)
+			{
+				Vec2 normalized{};
+				if (WorldToScreen(worldLocation, camera, &normalized) == false)
+					return false;
+
+				return NormalizedToScreen(normalized, szScreen, out);
+			}
+
+			/* */
+			bool Transform::Debug::ProjectWorldToScreenFromModelMtx(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, const Engine::Matrix4x4& modelMatrix, const Vec2& szScreen, Vec2* out)
+			{
+				/* transform world point to view space */
+				auto view = WorldToView(worldLocation, modelMatrix);
+
+				/* get native screen space (GS) */
+				auto gs = ViewToScreenSpace(view, camera.m_mtxSet.mtxViewToScreen);
+
+				Vec2 normalized{};
+				if (ScreenSpaceToNormalized(gs, camera.m_screen, &normalized) == false)
+					return false;
+
+				return NormalizedToScreen(normalized, szScreen, out);
+			}
+
+			/* */
+			bool Transform::Debug::ProjectWorldToScreenFromCameraView(Vec3 WorldLocation, Structs::ZViewModel CameraView, float fov, Vec2 szScreen, Vec2* screen2D)
 			{
 				Vec3 cam_pos = Vec3(CameraView.pos.x, CameraView.pos.y, CameraView.pos.z);
 				Vec3 cam_look = Vec3(-CameraView.fwd.x, -CameraView.fwd.y, -CameraView.fwd.z);
@@ -329,19 +604,9 @@ namespace Engine
 
 				return true;
 			}
-			
-			/* */
-			bool ProjectWorldToScreen_INTERNAL(const Vec3& worldLocation, const Vec2& szScreen, Vec2* out)
-			{
-				Classes::zdb_CCamera camera;
-				if (!Tools::GetCamera(camera))
-					return false;
-
-				return WorldToScreen(worldLocation, camera, szScreen, out);
-			}
 
 			/* */
-			bool ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out)
+			bool Transform::Debug::ProjectWorldToScreen_TEST(const Vec3& world, const Matrix4x4 worldToView, const Matrix4x4 viewToScreen, const Vec2& screenSize, Vec2* out)
 			{
 				//
 				// World -> View
@@ -416,7 +681,7 @@ namespace Engine
 
 				i64_t sealAddr = 0;
 				Classes::CZSealBody czSeal;
-				if (!Tools::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
+				if (!Tools::Entity::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
 					return;
 
 				const auto szWeaponArray = czSeal.MaxWeaponIndex;
@@ -476,7 +741,7 @@ namespace Engine
 
 				i64_t sealAddr = 0;
 				Classes::CZSealBody czSeal;
-				if (!Tools::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
+				if (!Tools::Entity::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
 					return;
 
 				const auto szWeaponArray = czSeal.MaxWeaponIndex;
@@ -534,7 +799,7 @@ namespace Engine
 
 				i64_t sealAddr = 0;
 				Classes::CZSealBody czSeal;
-				if (!Tools::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
+				if (!Tools::Entity::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
 					return;
 
 				const auto szWeaponArray = czSeal.MaxWeaponIndex;
@@ -560,7 +825,7 @@ namespace Engine
 
 				i64_t sealAddr = 0;
 				Classes::CZSealBody czSeal;
-				if (!Tools::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
+				if (!Tools::Entity::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
 					return;
 
 				const auto szWeaponArray = czSeal.MaxWeaponIndex;
@@ -586,7 +851,7 @@ namespace Engine
 
 				i64_t sealAddr = 0;
 				Classes::CZSealBody czSeal;
-				if (!Tools::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
+				if (!Tools::Entity::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
 					return;
 
 				const auto szWeaponArray = czSeal.MaxWeaponIndex;
@@ -629,6 +894,26 @@ namespace Engine
 				g_PSXMemory.Write<int>(pSuccessAddr, 1);
 			}
 
+			void SetFramerate(int frames)
+			{
+				struct iVec2 {
+					i32_t m[2];
+				};
+				
+				const i64_t& eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				const i64_t& pFPS = eemem + Offsets::gFPS;
+				if (!pFPS || pFPS == Offsets::gFPS)
+					return;
+
+				i32_t fps = frames;
+				if (fps <= 0)
+					fps = 30;
+
+				g_PSXMemory.Write<iVec2>(pFPS, { fps, fps });
+			}
 
 			/* CUSTOM */
 			void SetAmmoProperties(const int& weaponIndex, Classes::CZAmmo& newAmmoType)
@@ -639,7 +924,7 @@ namespace Engine
 
 				i64_t sealAddr = 0;
 				Classes::CZSealBody czSeal;
-				if (!Tools::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
+				if (!Tools::Entity::GetLocalSeal(czSeal, &sealAddr) || !sealAddr)
 					return;
 
 				//	get ammo type for cloning some info
@@ -706,17 +991,18 @@ bool pcsx2Memory::Attach(const std::string& name, const DWORD& dwAccess)
 		return false;
 
 	i64_t iopmem = 0;
-	if (!GetProcAddressEx(proc.hProc, proc.dwModuleBase, "EEMem", &iopmem))
+	if (!GetProcAddressEx(proc.hProc, proc.dwModuleBase, "IOPMem", &iopmem))
 		return false;
 
 	i64_t vumem = 0;
-	if (!GetProcAddressEx(proc.hProc, proc.dwModuleBase, "EEMem", &vumem))
+	if (!GetProcAddressEx(proc.hProc, proc.dwModuleBase, "VUMem", &vumem))
 		return false;
 
 	pcsx2Info_t pcx = reinterpret_cast<pcsx2Info_t&>(vmProcess);
 	pcx.dwEEBase = ReadEx<i64_t>(pcx.hProc, eemem);
 	pcx.dwIOPBase = ReadEx<i64_t>(pcx.hProc, iopmem);
 	pcx.dwVUBase = ReadEx<i64_t>(pcx.hProc, vumem);
+	pcx.dwSPRBase = pcx.dwEEBase + offsetof(EEVirtualMemory, EEVirtualMemory::Scratch);
 	pcxInfo = pcx;
 
 	return pcxInfo.bAttached;
@@ -759,21 +1045,6 @@ void pcsx2Memory::update()
 	vmProcess = reinterpret_cast<procInfo_t&>(pcxInfo);
 }
 
-bool pcsx2Memory::GetPSXAddress(const unsigned int& offset, i64_t* lpResult)
-{
-
-}
-
-i64_t pcsx2Memory::GetPSXAddress(const unsigned int& offset)
-{
-
-}
-
-i64_t pcsx2Memory::ReadPSXPointerChain(const i64_t& addr, std::vector<unsigned int>& offsets, i64_t* lpResult)
-{
-
-}
-
 void SOCOM::Update()
 {
 	using namespace Engine::zdb;
@@ -783,6 +1054,7 @@ void SOCOM::Update()
 		{
 			std::lock_guard<std::mutex> lock(this->m_cacheMutex);
 			this->m_cache = SGlobalSnapshot();
+			this->m_tick = 0;
 		} // free lock
 		printf("[!] SOCOM::Update - reset `%s`\n", reason);
 	};
@@ -791,26 +1063,34 @@ void SOCOM::Update()
 	auto& game = globals.m_ctx;
 	auto& player = globals.m_localPlayer;
 
-	__int64 eemem = g_PSXMemory.GetEEMemory();
-	if (!eemem)
+	globals.m_EE = g_PSXMemory.GetEEMemory();
+	if (!globals.m_EE)
 		return reset("failed to obtain eemem");
 
 	//	GET LOCAL PLAYER
-	auto pLocalPlayer = g_PSXMemory.Read<__int32>(eemem + Offsets::gLocalSeal);;
+	auto pLocalPlayer = g_PSXMemory.Read<__int32>(globals.m_EE + Offsets::gLocalSeal);;
 	if (!pLocalPlayer)
 		return reset("failed to obtain local player");
 
-	auto localSeal = g_PSXMemory.Read<Classes::CZSealBody>(eemem + pLocalPlayer);
+	auto localSeal = g_PSXMemory.Read<Classes::CZSealBody>(globals.m_EE + pLocalPlayer);
+	
+	/* get the tick rate */
+	{
+		auto tick = g_PSXMemory.Read<__int32>(globals.m_EE + (localSeal.pSealTM + 0xA4));
+		if (this->m_tick == 0) // tick not yet set
+			this->m_tick = tick; // set the tick rate
+	}
+
 	player.m_RVA = pLocalPlayer;
 	player.m_pos = localSeal.origin;
 	player.m_seal = localSeal;
-	if (!g_PSXMemory.ReadString(eemem + localSeal.pName, player.m_name, 32))
+	if (!g_PSXMemory.ReadString(globals.m_EE + localSeal.pName, player.m_name, 32))
 		return reset("failed to read local player name");
 
 	//	GET PLAYERS
 	std::vector<SImGuiPlayer> imPlayers;
 	std::vector<Classes::CZSealBody> seals;
-	if (Tools::GetPlayers(&seals))
+	if (Tools::Entity::GetPlayers(&seals))
 	{
 		imPlayers.reserve(seals.size());
 		for (auto& ent : seals)
@@ -820,7 +1100,7 @@ void SOCOM::Update()
 			if (ent.pName == localSeal.pName)
 				continue;	//	skip local player
 
-			if (!g_PSXMemory.ReadString(eemem + ent.pName, imPlayer.m_name, 32))
+			if (!g_PSXMemory.ReadString(globals.m_EE + ent.pName, imPlayer.m_name, 32))
 				continue;
 
 			imPlayer.m_pos = ent.origin;
@@ -836,28 +1116,37 @@ void SOCOM::Update()
 	// GET PICKUPS
 	std::vector<SImGuiPickup> imPickups;
 	std::vector<Classes::CPickup> pickups;
-	if (Tools::GetPickups(pickups))
+	if (pickups.empty() && Tools::Entity::GetPickups(pickups))
 	{
 		imPickups.reserve(pickups.size());
 		for (auto& pickup : pickups)
 		{
 			SImGuiPickup imPickup;
 
-			auto pName = g_PSXMemory.Read<__int32>(eemem + (pickup.pNode + 0x90));
+			i32_t pName{ 0 };
+			if (pickup.mType == Engine::zdb::Structs::EPickupType::PICKUP_TYPE_WEAPON)
+				pName = g_PSXMemory.Read<__int32>(globals.m_EE + (pickup.pData + 0x4)); // CZWeapon::pDisplayName
+			else
+			{
+				pName = g_PSXMemory.Read<__int32>(globals.m_EE + (pickup.pData + 0x14)); //
+				if (pName)
+					pName = g_PSXMemory.Read<__int32>(globals.m_EE + pName); // 
+					if (pName)
+						pName = g_PSXMemory.Read<__int32>(globals.m_EE + (pName + 0x4)); // CZAmmo::pDisplayName
+			}
 			if (!pName)
 				continue;
 
-			if (!g_PSXMemory.ReadString(eemem + pName, imPickup.m_name))
+			if (!g_PSXMemory.ReadString(globals.m_EE + pName, imPickup.m_name))
 				continue;
 
-			auto model_matrix = g_PSXMemory.Read<Engine::Matrix4x4>(eemem + pickup.pNode);
+			auto model_matrix = g_PSXMemory.Read<Engine::Matrix4x4>(globals.m_EE + pickup.pNode);
 
 			imPickup.m_pos = model_matrix.Translate();
 			imPickup.m_class = pickup;
 
 			imPickups.push_back(imPickup);
 		}
-
 	}
 
 	game.m_bInGame = seals.size() > 1;
@@ -867,14 +1156,38 @@ void SOCOM::Update()
 	globals.m_pickups = std::move(imPickups);
 
 	// GET CAMERA
-	if (!Tools::GetCamera(globals.m_camera))
+	if (!Tools::Camera::GetCamera(globals.m_camera))
 		return reset("failed to obtain camera");
 
+	/* CAMERA REFRESH TIMING */
+	{
+		static Engine::Matrix4x4 world_lastMatrix{};
+		static auto world_lastChange = std::chrono::steady_clock::now();
+		static bool world_initialized = false;
+		
+		const auto& mtxWorldToView = globals.m_camera.m_mtxSet.mtxWorldToView;
+		if (!world_initialized)
+		{
+			world_lastMatrix = mtxWorldToView;
+			world_lastChange = std::chrono::steady_clock::now();
+			world_initialized = true;
+		}
+		else if (memcmp(&mtxWorldToView, &world_lastMatrix, sizeof(mtxWorldToView)) != 0)
+		{
+			const auto now = std::chrono::steady_clock::now();
+		
+			this->m_cameraRefreshTime[0] = std::chrono::duration<float, std::milli>(now - world_lastChange).count();
+		
+			world_lastChange = now;
+			world_lastMatrix = mtxWorldToView;
+		}
+	}
+
+	globals.m_bValid = true;
 	{
 		std::lock_guard<std::mutex> lock(this->m_cacheMutex);
 		this->m_cache = std::move(globals);
 	} // free lock
-	globals.m_bValid = true;
 }
 
 void SOCOM::ShutDown()

@@ -7,18 +7,28 @@ using namespace std::chrono_literals;
 
 class Menu
 {
-public:
+public: // menu controls
 	bool bRunning{ true };
 	bool bShowMenu{ true };
+	bool bShowStats{ true };
 
-public:	//	visuals
+public:	//	visual controls
 	bool bESP{ false };
-	bool bESPName{ false };
+	bool bESPPlayers{ true };
+	bool bESPPickups{ true };
+	bool bESPName{ true };
 	bool bESPSnap{ false };
 	bool bESPHealth{ false };
 	bool bESPBox2D{ false };
-	bool bESPPickups{ false };
 	float mESPDist{ 100.f };
+
+public: // patch controls
+	int mFPS{ 30 };
+
+public: // debug
+	std::atomic < float > m_refreshTimes[4]; // PCSX2 - SOCOM - WINDOW - TOTAL
+
+private:
 
 public:
 	void Draw();
@@ -50,6 +60,7 @@ public:
 private:
 	DxWindow::SOverlay elements;
 	void RenderCache();
+	void RenderAnalytics();
 }; inline std::unique_ptr<Menu> g_Menu;
 
 //	basic color defines

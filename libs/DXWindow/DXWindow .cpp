@@ -188,7 +188,7 @@ void DxWindow::Update(SOverlay bind)
     m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, NULL);
     m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, (float*)clearColor);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    m_pSwapChain->Present(1, 0);
+    m_pSwapChain->Present(0, 0);
 }
 
 void DxWindow::CloneUpdate(HWND window)

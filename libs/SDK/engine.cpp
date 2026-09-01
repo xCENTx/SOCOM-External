@@ -16,8 +16,8 @@ namespace Engine
 
 	Vec2& Vec2::operator*=(const Vec2& other)
 	{
-		x += other.x;
-		y += other.y;
+		x *= other.x;
+		y *= other.y;
 		return *this;
 	}
 
@@ -202,6 +202,25 @@ namespace Engine
 		//	);
 	}
 
+	Matrix4x4 Matrix4x4::operator*(const Matrix4x4& mtx) const
+	{
+		Matrix4x4 result{};
+
+		for (int row = 0; row < 4; ++row)
+		{
+			for (int col = 0; col < 4; ++col)
+			{
+				for (int k = 0; k < 4; ++k)
+				{
+					result.m[row][col] +=
+						m[row][k] * mtx.m[k][col];
+				}
+			}
+		}
+
+		return result;
+	}
+
 	Vec4 Matrix4x4::operator*(const Vec4& v) const {
 		return Vec4(
 			m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w,
@@ -215,6 +234,27 @@ namespace Engine
 	{
 		return Vec3(m[3][0], m[3][1], m[3][2]);
 	}
+
+	Vec3 Matrix4x4::Row0() const
+	{
+		return Vec3(m[0][0], m[0][1], m[0][2]);
+	}
+
+	Vec3 Matrix4x4::Row1() const
+	{
+		return Vec3(m[1][0], m[1][1], m[1][2]);
+	}
+
+	Vec3 Matrix4x4::Row2() const
+	{
+		return Vec3(m[2][0], m[2][1], m[2][2]);
+	}
+
+	Vec3 Matrix4x4::Row3() const
+	{
+		return Vec3(m[3][0], m[3][1], m[3][2]);
+	}
+
 
 	Vec4 Matrix4x4::MatrixMultiply(const Vec3& v) const {
 		return Vec4
