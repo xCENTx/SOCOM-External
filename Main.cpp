@@ -4,6 +4,7 @@ int mainthread();
 int emuThread();
 
 static int LastTick = 0;
+
 int main()
 {
 	//  load game data
@@ -84,7 +85,11 @@ int mainthread()
 {
 	while (g_Menu->bRunning)
 	{
+		//	auto t0 = std::chrono::steady_clock::now();
+
 		g_SOCOM->Update();
+
+		//	g_Menu->m_refreshTimes[1] = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
 
 		//	std::this_thread::sleep_for(1ms);
 		std::this_thread::yield();
@@ -98,9 +103,13 @@ int emuThread()
 
 	while (g_Menu->bRunning)
 	{
+		//	auto t0 = std::chrono::steady_clock::now();
+
 		g_PSXMemory.update();
 
-		std::this_thread::sleep_for(100ms);
+		//	g_Menu->m_refreshTimes[0] = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
+
+		//	std::this_thread::sleep_for(100ms);
 		std::this_thread::yield();
 	}
 

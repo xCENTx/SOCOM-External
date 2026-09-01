@@ -26,7 +26,9 @@ public: // patch controls
 	int mFPS{ 30 };
 
 public: // debug
-	float m_refreshTimes[4]; // debug - PCSX2 - SOCOM - WINDOW - TOTAL
+	std::atomic < float > m_refreshTimes[4]; // PCSX2 - SOCOM - WINDOW - TOTAL
+
+private:
 
 public:
 	void Draw();
