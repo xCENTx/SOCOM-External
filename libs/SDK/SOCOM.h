@@ -11,7 +11,43 @@ struct pcsx2PROCESSINFO : public PROCESSINFO64
 	i64_t dwEEBase{ 0 };		//	
 	i64_t dwIOPBase{ 0 };		//	
 	i64_t dwVUBase{ 0 };		//	
+	i64_t dwSPRBase{ 0 };	//
 }; typedef pcsx2PROCESSINFO pcsx2Info_t;
+
+/* https://github.com/PCSX2/pcsx2/blob/47931a06890ae7ee70f7e3019ad1bdcba8a07c32/pcsx2/MemoryTypes.h#L32-L48 */
+namespace PS2MemSize
+{
+	static const int MainRam = (1024 * 1024) * 32;	// 32MB
+	static const int ExtraRam = (1024 * 1024) * 96; // 96MB	// devkit
+	static const int TotalRam = MainRam + ExtraRam; // 128MB
+	static const int Rom = (1024 * 1024) * 4;		// 4MB
+	static const int Rom1 = (1024 * 1024) * 4;		// 4MB	// dvd player
+	static const int Rom2 = (1024 * 1024) * 4;		// 4MB	// chinese extensions
+
+	static const int IopRam = (1024 * 1024) * 2;	// 2MB
+	static const int IopHardware = 1 * 64;	// 64KB
+
+	static const int Scratch = 1 * 16; // 16KB
+
+	static const int Zero = (1024 * 1) * 1;		// 1MB
+}
+struct EEVirtualMemory
+{
+	unsigned __int8 Main[PS2MemSize::MainRam];			// 32MB
+	unsigned __int8 Extra[PS2MemSize::ExtraRam];		// 96MB
+	unsigned __int8 Scratch[PS2MemSize::Scratch];		// 16KB
+	unsigned __int8 ROM[PS2MemSize::Rom];				// Boot rom (4MB)
+	unsigned __int8 ROM1[PS2MemSize::Rom1];				// DVD player (4MB)
+	unsigned __int8 ROM2[PS2MemSize::Rom2];				// Chinese extensions
+
+	// Two 1 megabyte (max DMA) buffers for reading and writing to high memory (>32MB).
+	// Such accesses are not documented as causing bus errors but as the memory does
+	// not exist, reads should continue to return 0 and writes should be discarded.
+	// Probably.
+
+	unsigned __int8 ZeroRead[PS2MemSize::Zero];			// 1MB
+	unsigned __int8 ZeroWrite[PS2MemSize::Zero];		// 1MB	
+};
 
 class pcsx2Memory : public exMemory
 {
@@ -46,15 +82,8 @@ public:
 	/**/
 	inline const i64_t& GetVUMemory() const { return pcxInfo.dwVUBase; }
 
-public:
 	/**/
-	inline bool GetPSXAddress(const unsigned int& offset, i64_t* lpResult);
-	
-	/**/
-	inline i64_t GetPSXAddress(const unsigned int& offset);
-	
-	/**/
-	inline i64_t ReadPSXPointerChain(const i64_t& addr, std::vector<unsigned int>& offsets, i64_t* lpResult = nullptr);
+	inline const i64_t& GetSPRMemory() const { return pcxInfo.dwSPRBase; }
 };
 
 

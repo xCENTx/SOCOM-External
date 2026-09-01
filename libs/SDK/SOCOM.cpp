@@ -447,14 +447,80 @@ namespace Engine
 				return WorldToScreen(worldLocation, camera, szScreen, out);
 			}
 
+
+			/*
+			 * 0 = current camera matrix
+			 * 1 = previous camera update
+			 * 2 = two updates ago
+			 * 3 = three updates ago
+			 */
+			bool GetMatrixFromHistory(const zdb::Classes::zdb_CCamera& camera, const int& index, Matrix4x4* result)
+			{
+				/// no need for scratchpad matrix
+				//	if (camera.m_scratch < 0x3E60)
+				//		return false;
+				//	
+				//	const Matrix4x4 currentMatrix = g_PSXMemory.Read<Matrix4x4>( g_PSXMemory.GetSPRMemory() + camera.m_scratch + 0x20 );
+
+				if (!result)
+					return false;
+
+				const int frameIndex = (index >= 0 && index < 4) ? index : 0;
+				const Matrix4x4 currentMatrix = camera.m_mtxSet.mtxWorldToView * camera.m_mtxSet.mtxViewToScreen;
+
+				static Matrix4x4 history[4]{};
+				static Matrix4x4 previousMatrix{};
+				static bool initialized = false;
+
+				/*
+				* init matrix history
+				*/
+				if (!initialized)
+				{
+					previousMatrix = currentMatrix;
+
+					history[0] = currentMatrix;
+					history[1] = currentMatrix;
+					history[2] = currentMatrix;
+					history[3] = currentMatrix;
+
+					initialized = true;
+				}
+
+				/*
+				 * Only advance history when the WorldToScreen matrix actually changes.
+				 */
+				if (std::memcmp( &currentMatrix, &previousMatrix, sizeof(Matrix4x4)) != 0)
+				{
+					history[3] = history[2];
+					history[2] = history[1];
+					history[1] = history[0];
+					history[0] = currentMatrix;
+
+					previousMatrix = currentMatrix;
+				}
+
+				*result = history[frameIndex];
+
+				return true;
+			}
+
 			/* */
 			bool Transform::WorldToScreen(const Vec3& worldLocation, zdb::Classes::zdb_CCamera& camera, Vec2* out)
 			{
-				/* transform world point to view space */
-				Vec4 view = WorldToView(worldLocation, camera.m_mtxSet.mtxWorldToView);
+				Vec4 gs;
+				Matrix4x4 mtxWorldToScreen;
+				if (GetMatrixFromHistory(camera, 2, &mtxWorldToScreen) == false)
+				{
+					/* transform world point to view space */
+					Vec4 view = WorldToView(worldLocation, camera.m_mtxSet.mtxWorldToView);
 
-				/* get native screen space (GS) */
-				Vec4 gs = ViewToScreenSpace(view, camera.m_mtxSet.mtxViewToScreen);
+					/* get native screen space (GS) */
+					gs = ViewToScreenSpace(view, camera.m_mtxSet.mtxViewToScreen);
+
+				}
+				else
+					gs = mtxWorldToScreen.TransformPoint(worldLocation);
 
 				/* screen space to normalized */
 				Vec2 result;
@@ -925,17 +991,18 @@ bool pcsx2Memory::Attach(const std::string& name, const DWORD& dwAccess)
 		return false;
 
 	i64_t iopmem = 0;
-	if (!GetProcAddressEx(proc.hProc, proc.dwModuleBase, "EEMem", &iopmem))
+	if (!GetProcAddressEx(proc.hProc, proc.dwModuleBase, "IOPMem", &iopmem))
 		return false;
 
 	i64_t vumem = 0;
-	if (!GetProcAddressEx(proc.hProc, proc.dwModuleBase, "EEMem", &vumem))
+	if (!GetProcAddressEx(proc.hProc, proc.dwModuleBase, "VUMem", &vumem))
 		return false;
 
 	pcsx2Info_t pcx = reinterpret_cast<pcsx2Info_t&>(vmProcess);
 	pcx.dwEEBase = ReadEx<i64_t>(pcx.hProc, eemem);
 	pcx.dwIOPBase = ReadEx<i64_t>(pcx.hProc, iopmem);
 	pcx.dwVUBase = ReadEx<i64_t>(pcx.hProc, vumem);
+	pcx.dwSPRBase = pcx.dwEEBase + offsetof(EEVirtualMemory, EEVirtualMemory::Scratch);
 	pcxInfo = pcx;
 
 	return pcxInfo.bAttached;
@@ -976,21 +1043,6 @@ void pcsx2Memory::update()
 		pcxInfo.mWndwTitle = std::string(buffer);
 
 	vmProcess = reinterpret_cast<procInfo_t&>(pcxInfo);
-}
-
-bool pcsx2Memory::GetPSXAddress(const unsigned int& offset, i64_t* lpResult)
-{
-
-}
-
-i64_t pcsx2Memory::GetPSXAddress(const unsigned int& offset)
-{
-
-}
-
-i64_t pcsx2Memory::ReadPSXPointerChain(const i64_t& addr, std::vector<unsigned int>& offsets, i64_t* lpResult)
-{
-
 }
 
 void SOCOM::Update()
