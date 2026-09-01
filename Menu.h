@@ -7,14 +7,12 @@ using namespace std::chrono_literals;
 
 class Menu
 {
-public:
+public: // menu controls
 	bool bRunning{ true };
 	bool bShowMenu{ true };
 	bool bShowStats{ false };
-	float m_refreshTimes[4]; // debug - PCSX2 - SOCOM - WINDOW - TOTAL
-	float m_predictionMS{ 60.f };
 
-public:	//	visuals
+public:	//	visual controls
 	bool bESP{ false };
 	bool bESPPlayers{ true };
 	bool bESPPickups{ true };
@@ -23,7 +21,12 @@ public:	//	visuals
 	bool bESPHealth{ false };
 	bool bESPBox2D{ false };
 	float mESPDist{ 100.f };
+
+public: // patch controls
 	int mFPS{ 30 };
+
+public: // debug
+	float m_refreshTimes[4]; // debug - PCSX2 - SOCOM - WINDOW - TOTAL
 
 public:
 	void Draw();
