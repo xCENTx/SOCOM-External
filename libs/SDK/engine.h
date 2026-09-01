@@ -79,6 +79,7 @@ namespace Engine
 	{
 		float m[4][4];
 
+		Matrix4x4 operator*(const Matrix4x4& mtx) const;
 		Vec4 operator*(const Vec4& v) const;
 
 		Vec3 Translate() const; // returns origin
