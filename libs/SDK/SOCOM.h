@@ -166,13 +166,21 @@ namespace Engine
 
 		namespace Offsets
 		{
-			constexpr auto gAppCamera{ 0x48D488 };		//	black label
-			constexpr auto gLocalSeal{ 0x48D548 };		//	black label
-			constexpr auto gEntityArray{ 0x4D46A0 };	//	black label
-			constexpr auto gMission{ 0x4D4880 };		//	black label
-			constexpr auto gCamera{ 0x51E778 };			//	black label
-			constexpr auto gPickups{ 0x51E970 };		//	black label - ZArray<CPickup*>
-			constexpr auto gFPS{ 0x48CF60 };			//	black label - int
+			/* ALL OFFSETS ARE FROM BLACK LABEL (SCUS-97134) */
+			constexpr auto gAppCamera{ 0x48D488 };			//	
+			constexpr auto gLocalSeal{ 0x48D548 };			//	
+			constexpr auto gEntityArray{ 0x4D46A0 };		//	
+			constexpr auto gMission{ 0x4D4880 };			//	
+			constexpr auto gCamera{ 0x51E778 };				//	
+			constexpr auto gPickups{ 0x51E970 };			// ZArray<CPickup*>
+			constexpr auto gFPS{ 0x48CF60 };				// int
+			constexpr auto gOrdersArray{ 0x496780 };		// ORDER_TUPLE[gOrdersCount]
+			constexpr auto gOrdersCount{ 0x48D2AC };		// int
+			constexpr auto gTeamTablesArray{ 0x4494D0 };	// TEAM_TABLE[gTeamTablesCount]
+			constexpr auto gTeamTablesCount{ 0x48C79C };	//
+			constexpr auto gCommandsArray{ 0x48D2D4 };		// pointer to CMD_TABLE[gCommandsCount]
+			constexpr auto gCommandsCount{ 0x48D2DC };		//
+			constexpr auto gHud{ 0x48E594 };				// CHud
 		}
 
 		namespace Enums
@@ -335,6 +343,31 @@ namespace Engine
 				PICKUP_TYPE_AMMO,
 				PICKUP_TYPE_BOMB = 11
 			};
+
+			enum FT_COMMAND : uint8_t
+			{
+				FT_NONE = 0,
+
+				FT_RETICULE_ACTION = 1,
+				FT_DEPLOY = 2,
+				FT_FIRE_AT_WILL = 3,
+				FT_FOLLOW = 4,
+				FT_HOLD_POSITION = 5,
+				FT_HOLD_FIRE = 6,
+				FT_REGROUP = 7,
+
+				FT_STEALTH_TO = 14,
+				FT_RUN_TO = 15,
+				FT_LEAD_TO = 16,
+				FT_ATTACK_TO = 17,
+
+				FT_COVER_AREA = 23,
+
+				FT_AMBUSH = 25,
+
+				// 33 / 34 are special entity/player-targeting commands.
+				// Exact names still unknown.
+			};
 		}
 
 		namespace Structs
@@ -347,6 +380,111 @@ namespace Engine
 				Vec3 m_fullfrustum[6];    //0x0024
 				i32_t m_full_frustum_points;    //0x006C
 			};    //Size: 0x0070
+
+			/*
+			* CCoreState::Tick : a1 + 0xB8 = CHud
+			* CHud::Tick : a1 + 0x12BD0 = ORDERS_MENU_STATE
+			*
+			*/
+			struct ORDERS_MENU_STATE
+			{
+				uint8_t active;                 // 0x00
+											   // Set to 1 by DoOrdersMenuCalculations()
+				uint8_t unk0001[0x03];          // 0x01
+				float timers[3]; //0x0004
+				char pad_0010[4]; //0x0010
+				uint32_t pTeamItems; //0x0014	//	class C2DOrderItem*
+				uint32_t pCommandItems; //0x0018	//	class C2DOrderItem*
+				uint32_t pContextItems; //0x001C	//	class C2DOrderItem*
+				float collapseTimer; //0x0020
+				bool bClosing; //0x0024
+				char pad_0025[3]; //0x0025
+				int32_t itemCount[3]; //0x0028
+                                   //
+                                   // [0] teams
+                                   // [1] commands
+                                   // [2] context/submenu
+				int32_t selection[3]; //0x0034
+                                   //
+                                   // [0] team selection
+                                   // [1] command display index
+                                   // [2] context index
+				uint8_t selectedTeamType; //0x0040
+				char pad_0041[3]; //0x0041
+				uint32_t pSelectedSubMenu; //0x0044	//	class CSubMenu*
+				uint32_t pCommand; //0x0048	// class N000006EB*
+				char pad_004C[44]; //0x004C
+				int32_t currentSelection; //0x0078
+                                   // Current highlighted item.
+				int32_t currentColumn; //0x007C
+                                   //
+                                   // 0 = team
+                                   // 1 = command
+                                   // 2 = context
+				char pad_0080[12]; //0x0080
+			}; //Size: 0x008C
+			static_assert(sizeof(ORDERS_MENU_STATE) == 0x8C);
+
+			struct ORDER_COLUMN_ENTRY
+			{
+				char text[40]; //0x0000
+				int32_t recoWordId; //0x0028
+				int32_t selectionIndex; //0x002C
+			}; //Size: 0x0030
+			static_assert(sizeof(ORDER_COLUMN_ENTRY) == 0x30);
+
+			/*
+			* gOrdersArray
+			*/
+			struct ORDER_TUPLE
+			{
+				class ORDER_COLUMN_ENTRY column[3]; //0x0000
+				bool flag90; //0x0090
+				Enums::FT_COMMAND command; //0x0091 // FT_COMMAND
+				char pad_0092[2]; //0x0092
+				uint32_t commandArg; //0x0094
+				uint32_t pController; //0x0098
+			}; //Size: 0x009C
+			static_assert(sizeof(ORDER_TUPLE) == 0x9C);
+
+			struct CMD_TABLE
+			{
+				char displayText[32]; //0x0000
+				char recoText[160]; //0x0020
+				int32_t recoWordId; //0x00C0
+				FT_COMMAND command; //0x00C4
+				char pad_00C5[3]; //0x00C5
+				int32_t teamMask; //0x00C8
+				bool flagCC; //0x00CC
+				char pad_00CD[3]; //0x00CD
+				int32_t subMenuCount; //0x00D0
+				uint32_t pSubMenu; //0x00D4	//	class CSubMenu*
+				int32_t displayIndex; //0x00D8
+                                // Dynamically rebuilt by
+                                // SetupCommandDisplay().
+			}; //Size: 0x00DC
+			static_assert(sizeof(CMD_TABLE) == 0xDC);
+
+			struct TEAM_TABLE
+			{
+				char displayText[20]; //0x0000
+				char recoText[20]; //0x0014
+				char pad_0028[24]; //0x0028
+				int32_t recoWordId; //0x0040
+				uint8_t teamType; //0x0044
+                                // Passed to CSealUnit::GetUnitByTeam()
+				char pad_0045[3]; //0x0045
+				int32_t displayIndex; //0x0048
+                                // SetupTeamDisplay writes the table index here for enabled entries.
+				bool enabled; //0x004C
+                                // CONFIRMED behavior: nonzero makes the team entry participate in menu navigation/display.
+				char pad_004D[3]; //0x004D
+				uint32_t pUnit; //0x0050 // class CSealUnit*
+                                // Refreshed by CSealUnit::GetUnitByTeam(teamType)
+				char descriptionText[128]; //0x0054
+                                // Used for the description/header UI.
+			}; //Size: 0x00D4
+			static_assert(sizeof(TEAM_TABLE) == 0xD4);
 
 			struct tag_CAMERA_PARAMS
 			{
@@ -431,6 +569,33 @@ namespace Engine
 		{
 			using namespace Structs;
 
+			class C2DOrderItem
+			{
+			public:
+				char pad_0000[600]; //0x0000
+				uint32_t pDisplayData; //0x0258 // unknown type
+				char pad_025C[4]; //0x025C
+			}; //Size: 0x0260
+			static_assert(sizeof(C2DOrderItem) == 0x260);
+
+			class CHud
+			{
+			public:
+				char pad_0000[0x12BD0];
+				ORDERS_MENU_STATE s_orders;
+			};
+
+			class CSubMenu
+			{
+			public:
+				uint32_t pText; //0x0000	//	char*
+				uint32_t pDisplayData; //0x0004	//	char* ?
+                                // Used by C2DOrderItem at +0x258.
+                                // Exact underlying type still unknown.
+				uint32_t value; //0x0008
+			}; //Size: 0x000C
+			static_assert(sizeof(CSubMenu) == 0xC);
+
 			class CMission
 			{
 			public:
@@ -490,6 +655,19 @@ namespace Engine
 				char							pad_0478[160];				//0x0478
 
 			};    //Size: 0x079C
+
+			class CSealUnit
+			{
+			public:
+				int32_t unk0000; //0x0000
+				uint32_t pInterface; //0x0004
+                                 // Object/interface pointer whose function table is used for command validation/execution.
+
+				char pad_0008[48]; //0x0008
+				int32_t state38; //0x0038
+                                 // Some state/type/mode value.
+			}; //Size: 0x003C
+			static_assert(sizeof(CSealUnit) == 0x3C);
 
 			class CZSealObject
 			{
@@ -670,6 +848,12 @@ namespace Engine
 			namespace Game
 			{
 				int GetFramerate();
+			}
+
+			namespace Dumper
+			{
+				void Orders(); // dumps the orders array
+				void Teams(); // dumps the orders array
 			}
 		}
 
