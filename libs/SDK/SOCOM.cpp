@@ -258,6 +258,249 @@ namespace Engine
 				return g_PSXMemory.Read<int>(pFPS);
 			}
 
+			void Dumper::Orders()
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				int32_t numTuples = g_PSXMemory.Read<int32_t>(eemem + Offsets::gOrdersCount);
+				if (numTuples <= 0 || numTuples > 2044)
+					return;
+
+				std::vector<Classes::RecoTuple> orders(numTuples);
+				if (g_PSXMemory.ReadMemory( eemem + Offsets::gOrdersArray, orders.data(), sizeof(Classes::RecoTuple) * numTuples) == false)
+					return;
+
+				auto pHud = g_PSXMemory.Read<i32_t>(eemem + Offsets::gHud);
+				if (!pHud)
+					return;
+
+				auto order_state = g_PSXMemory.Read<Classes::OrdersMenu>(eemem + (pHud + offsetof(Classes::CHud, Classes::CHud::m_OrderMenu)));
+
+				printf("========================================\n");
+				printf("OrdersMenu Dump\n");
+				printf("num_orders = %d (0x%X)\n", orders.size(), orders.size());
+				printf("selectedTeam    = %d (0x%X)\n", order_state.currentSelection, order_state.currentSelection);
+				printf("selectedCommand = %d (0x%X)\n", order_state.currentColumn, order_state.currentColumn);
+				printf("========================================\n\n");
+				for (size_t i = 0; i < orders.size(); ++i)
+				{
+					const auto& tuple = orders[i];
+
+					printf(
+						"[%03d] "
+						"subject='%s' [%d,%d] | "
+						"verb='%s' [%d,%d] | "
+						"object='%s' [%d,%d] | "
+						"send_cmd=%d "
+						"cmd=%u "
+						"data=%08X "
+						"unit=%08X\n",
+
+						i,
+
+						tuple.subject,
+						tuple.subjectID,
+						tuple.snum,
+
+						tuple.verb,
+						tuple.verbID,
+						tuple.vnum,
+
+						tuple.object,
+						tuple.objectID,
+						tuple.onum,
+
+						tuple.send_command ? 1 : 0,
+						static_cast<unsigned int>(tuple.command),
+						tuple.pData,
+						tuple.pUnit
+					);
+				}
+
+				return; 
+
+				/* file ?*/
+				//	{
+				//		FILE* fp = nullptr;
+				//		fopen_s(&fp, "OrdersDump.txt", "w");
+				//		
+				//		if (!fp)
+				//			return;
+				//		
+				//		fprintf(fp, "========================================\n");
+				//		fprintf(fp, "OrdersMenu Tuple Dump\n");
+				//		fprintf(fp, "num_tuples = %d (0x%X)\n", numTuples, numTuples);
+				//		fprintf(fp, "========================================\n\n");
+				//		
+				//		for (int i = 0; i < numTuples; ++i)
+				//		{
+				//			const auto& tuple = orders[i];
+				//		
+				//			fprintf(
+				//				fp,
+				//				"[%03d] "
+				//				"C0='%s' [%d,%d] | "
+				//				"C1='%s' [%d,%d] | "
+				//				"C2='%s' [%d,%d] | "
+				//				"flag90=%d "
+				//				"cmd=%u "
+				//				"arg=%08X "
+				//				"ctrl=%08X\n",
+				//		
+				//				i,
+				//		
+				//				tuple.column[0].text,
+				//				tuple.column[0].recoWordId,
+				//				tuple.column[0].selectionIndex,
+				//		
+				//				tuple.column[1].text,
+				//				tuple.column[1].recoWordId,
+				//				tuple.column[1].selectionIndex,
+				//		
+				//				tuple.column[2].text,
+				//				tuple.column[2].recoWordId,
+				//				tuple.column[2].selectionIndex,
+				//		
+				//				tuple.flag90 ? 1 : 0,
+				//				static_cast<unsigned int>(tuple.command),
+				//				tuple.commandArg,
+				//				tuple.pController
+				//			);
+				//		}
+				//		
+				//		fclose(fp);
+				//	}
+			}
+
+			void Dumper::Teams()
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				int32_t teamCount = g_PSXMemory.Read<int32_t>(eemem + Offsets::gTeamTablesCount);
+				if (teamCount <= 0 || teamCount > 11)
+					return;
+
+				std::vector<Structs::TEAM_TABLE> teams(teamCount);
+				if (g_PSXMemory.ReadMemory(eemem + Offsets::gTeamTablesArray, teams.data(), sizeof(Structs::TEAM_TABLE) * teamCount) == false)
+					return;
+
+				printf("\n===== TEAM TABLE =====\n");
+				printf("count = %d (0x%X)\n", teamCount, teamCount);
+
+				for (int i = 0; i < teamCount; ++i)
+				{
+					auto team = teams[i];
+
+					printf(
+						"[%02d] "
+						"text=\"%-20s\" "
+						"reco=\"%-20s\" "
+						"recoId=%d "
+						"type=%u "
+						"displayIdx=%d "
+						"has_cmd=%u "
+						"unit=%08X "
+						"display=%08X\n",
+						i,
+						team.displayText,
+						team.recoText,
+						team.recoWordId,
+						team.teamType,
+						team.displayIndex,
+						team.has_cmd,
+						team.pUnit,
+						team.descriptionText
+					);
+				}
+			}
+
+			void Dumper::Commands()
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				int32_t cmdCount = g_PSXMemory.Read<int32_t>(eemem + Offsets::gCommandsCount);
+				int32_t pCommands = g_PSXMemory.Read<int32_t>(eemem + Offsets::gCommandsArray);
+				if (cmdCount <= 0 || pCommands <= 0)
+					return;
+
+				std::vector<Structs::CMD_TABLE> commands(cmdCount);
+				if (g_PSXMemory.ReadMemory(eemem + pCommands, commands.data(), sizeof(Structs::CMD_TABLE) * cmdCount) == false)
+					return;
+
+				printf("\n===== COMMANDS TABLE =====\n");
+				printf("count = %d (0x%X)\n", cmdCount, cmdCount);
+
+				for (int i = 0; i < cmdCount; ++i)
+				{
+					auto cmd = commands[i];
+
+					printf(
+						"[%02d] "
+						"addr=%08X "
+						"text=\"%-20s\" "
+						"reco=\"%-20s\" "
+						"desc=\"%-20s\" "
+						"recoId=%d "
+						"command=%u "
+						"teamMask=%08X "
+						"multiplayerFlag=%u "
+						"subMenuCount=%d "
+						"pSubMenu=%08X "
+						"displayIdx=%d\n",
+						i,
+						pCommands + i * sizeof(Structs::CMD_TABLE),
+						cmd.displayText,
+						cmd.recoText,
+						cmd.description,
+						cmd.recoWordId,
+						cmd.command,
+						cmd.teamMask,
+						cmd.multiplayerFlag,
+						cmd.subMenuCount,
+						cmd.pSubMenu,
+						cmd.displayIndex
+					);
+
+					if (cmd.subMenuCount > 0 && cmd.pSubMenu)
+					{
+						for (int s = 0; s < cmd.subMenuCount; ++s)
+						{
+							Classes::CSubMenu sub = g_PSXMemory.Read<Classes::CSubMenu>( eemem + cmd.pSubMenu + s * sizeof(Classes::CSubMenu) );
+
+							char display[128]{};
+							char explanation[256]{};
+
+							if (sub.pText)
+							{
+								g_PSXMemory.ReadMemory( eemem + sub.pText, display, sizeof(display) - 1 );
+							}
+
+							if (sub.pDisplayData)
+							{
+								g_PSXMemory.ReadMemory( eemem + sub.pDisplayData, explanation, sizeof(explanation) - 1 );
+							}
+
+							printf(
+								"       -> [%02d] "
+								"text=\"%s\" "
+								"explanation=\"%s\" "
+								"data=%08X\n",
+								s,
+								display,
+								explanation,
+								sub.pData
+							);
+						}
+					}
+				}
+			}
+
 			Matrix4x4 Transform::BuildViewToClip(const zdb::Classes::zdb_CCamera& camera)
 			{
 				/*
