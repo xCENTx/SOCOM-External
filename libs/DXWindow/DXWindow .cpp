@@ -12,7 +12,21 @@ void DxWindow::Init()
     m_szScreen = ImVec2(GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
     m_wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"WC NightFyre Dx11 External Base", nullptr };
     ::RegisterClassEx(&m_wc);
-    m_hwnd = ::CreateWindowW(m_wc.lpszClassName, L"NightFyre Dx11 External Base", WS_EX_TOPMOST | WS_POPUP, static_cast<int>(m_posScreen.x), static_cast<int>(m_posScreen.y), static_cast<int>(m_szScreen.x), static_cast<int>(m_szScreen.y), nullptr, nullptr, m_wc.hInstance, nullptr);
+    //  m_hwnd = ::CreateWindowW(m_wc.lpszClassName, L"NightFyre Dx11 External Base", WS_EX_TOPMOST | WS_POPUP, static_cast<int>(m_posScreen.x), static_cast<int>(m_posScreen.y), static_cast<int>(m_szScreen.x), static_cast<int>(m_szScreen.y), nullptr, nullptr, m_wc.hInstance, nullptr);
+    m_hwnd = ::CreateWindowExW(
+        WS_EX_TOPMOST | WS_EX_LAYERED,
+        m_wc.lpszClassName,
+        L"NightFyre Dx11 External Base",
+        WS_POPUP,
+        static_cast<int>(m_posScreen.x),
+        static_cast<int>(m_posScreen.y),
+        static_cast<int>(m_szScreen.x),
+        static_cast<int>(m_szScreen.y),
+        nullptr,
+        nullptr,
+        m_wc.hInstance,
+        this
+    );
     SetLayeredWindowAttributes(m_hwnd, 0, 255, LWA_ALPHA);
     gMargin = { 0, 0, static_cast<int>(m_szScreen.x), static_cast<int>(m_szScreen.y) };
     DwmExtendFrameIntoClientArea(m_hwnd, &gMargin);
@@ -167,8 +181,23 @@ void DxWindow::Update(SOverlay bind)
         ::DispatchMessage(&msg);
     }
 
-	// @ todo: update dx window to match the cloned window
-    ::SetWindowPos(m_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    if (m_pendingWidth != 0 && m_pendingHeight != 0 && m_pSwapChain)
+    {
+        CleanupRenderTarget();
+
+        m_pSwapChain->ResizeBuffers(
+            0,
+            m_pendingWidth,
+            m_pendingHeight,
+            DXGI_FORMAT_UNKNOWN,
+            0
+        );
+
+        m_pendingWidth = 0;
+        m_pendingHeight = 0;
+
+        CreateRenderTarget();
+    }
 
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -193,7 +222,7 @@ void DxWindow::Update(SOverlay bind)
 
 void DxWindow::CloneUpdate(HWND window)
 {
-    if (!window)
+    if (!window || !IsWindow(window))
     {
 		// clear cloned window position and size
 		m_posClone = ImVec2(0.0f, 0.0f);
@@ -203,34 +232,107 @@ void DxWindow::CloneUpdate(HWND window)
     }
 		
     RECT clientRect;
-    POINT topLeft{};
-    POINT bottomRight{};
-    GetClientRect(window, &clientRect);
-    topLeft.x = clientRect.left;
-    topLeft.y = clientRect.top;
-    bottomRight.x = clientRect.right;
-    bottomRight.y = clientRect.bottom;
-    ClientToScreen(window, &topLeft);
-    ClientToScreen(window, &bottomRight);
-    m_posClone = { float(topLeft.x), float(topLeft.y) };
-    m_szClone = { float((bottomRight.x - topLeft.x)), float((bottomRight.y - topLeft.y)) };
-	bValidClone |= true;
+    if (!GetClientRect(window, &clientRect))
+    {
+        bValidClone = false;
+        return;
+    }
+
+    POINT clientPos
+    {
+        clientRect.left,
+        clientRect.top
+    };
+
+    if (!ClientToScreen(window, &clientPos))
+    {
+        bValidClone = false;
+        return;
+    }
+
+    const int width = clientRect.right - clientRect.left;
+    const int height = clientRect.bottom - clientRect.top;
+
+    if (width <= 0 || height <= 0)
+    {
+        bValidClone = false;
+        return;
+    }
+
+    const ImVec2 newPos
+    {
+        static_cast<float>(clientPos.x),
+        static_cast<float>(clientPos.y)
+    };
+
+    const ImVec2 newSize
+    {
+        static_cast<float>(width),
+        static_cast<float>(height)
+    };
+
+    const bool changed =
+        newPos.x != m_posClone.x ||
+        newPos.y != m_posClone.y ||
+        newSize.x != m_szClone.x ||
+        newSize.y != m_szClone.y;
+
+    m_posClone = newPos;
+    m_szClone = newSize;
+    bValidClone = true;
+
+    if (!changed)
+        return;
+
+    SetWindowPos(m_hwnd, HWND_TOPMOST, static_cast<int>(m_posClone.x), static_cast<int>(m_posClone.y), static_cast<int>(m_szClone.x), static_cast<int>(m_szClone.y), SWP_NOACTIVATE);
 }
 
 LRESULT WINAPI DxWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    DxWindow* window = reinterpret_cast<DxWindow*>( GetWindowLongPtrW(hWnd, GWLP_USERDATA) );
+
+    if (msg == WM_NCCREATE)
+    {
+        auto* create = reinterpret_cast<CREATESTRUCTW*>(lParam);
+
+        window = static_cast<DxWindow*>(create->lpCreateParams);
+
+        SetWindowLongPtrW(
+            hWnd,
+            GWLP_USERDATA,
+            reinterpret_cast<LONG_PTR>(window)
+        );
+    }
+
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
         return true;
 
     switch (msg)
     {
-    case WM_SYSCOMMAND:
-        if ((wParam & 0xfff0) == SC_KEYMENU)
+        case WM_SIZE:
+        {
+            if (window && wParam != SIZE_MINIMIZED)
+            {
+                window->m_pendingWidth = LOWORD(lParam);
+                window->m_pendingHeight = HIWORD(lParam);
+            }
+
             return 0;
-        break;
-    case WM_DESTROY:
-        ::PostQuitMessage(0);
-        return 0;
+        }
+
+        case WM_SYSCOMMAND:
+        {
+            if ((wParam & 0xFFF0) == SC_KEYMENU)
+                return 0;
+
+            break;
+        }
+
+        case WM_DESTROY:
+        {
+            ::PostQuitMessage(0);
+            return 0;
+        }
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }

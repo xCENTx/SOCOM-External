@@ -33,7 +33,7 @@ int main(int argc, char** argv)
 			if (GetAsyncKeyState(VK_RCONTROL) & 0x8000 && bTimer)
 			{
 				g_Menu->bShowMenu ^= 1;
-				g_Menu->UpdateOverlayViewState(g_Menu->bShowMenu);
+				g_Menu->SetVisible(g_Menu->bShowMenu);
 				switch (g_Menu->bShowMenu)
 				{
 				case(true): g_dxWindow->SetWindowFocus(g_dxWindow->GetWindowHandle()); break;

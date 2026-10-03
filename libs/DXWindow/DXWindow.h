@@ -67,6 +67,8 @@ private:
 	ImVec2 m_posScreen{ 0.0f, 0.0f };
 	ImVec2 m_szClone{ 0.0f, 0.0f };
 	ImVec2 m_posClone{ 0.0f, 0.0f };
+	UINT m_pendingWidth{ 0 };
+	UINT m_pendingHeight{ 0 };
 	bool bValidClone{ false };
 
 private:

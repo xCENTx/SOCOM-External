@@ -38,8 +38,8 @@ public:
 	void HUD();
 
 public:
-	DxWindow::SOverlay GetOverlay();
-	void UpdateOverlayViewState(bool bState);
+	const DxWindow::SOverlay& GetOverlay() const;
+	void SetVisible(bool visible);
 
 	/* obtains a bounding box for the overlay menu based on the dimensions of the cloned window
 	* returns a menu size of half the cloned window size , with its position centered on the cloned window
@@ -49,10 +49,7 @@ public:
 	/* obtains a bounding box for the game overlay window based on the dimensions of the cloned window
 	* returns a window size of the cloned window size, with its position at the top left corner of the cloned window
 	*/
-	ImRect GetCloneOverlayBounds();
-
-	/* */
-	ImRect GetClientScreenBounds();
+	ImRect GetOverlayBounds();
 
 public:
 	explicit Menu();
