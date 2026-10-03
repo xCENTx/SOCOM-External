@@ -1,9 +1,33 @@
 #include "LoadoutUI.h"
 #include <DXWindow/DXWindow.h>
 #include "Menu.h"
+#include "weapon_viewer.h"
 
 #include <algorithm>
+#include <memory>
+#include <iostream>
+#include <backends/imgui_impl_dx11.h>
 
+namespace {
+std::filesystem::path ModelAssetDirectory()
+{
+    std::vector<wchar_t> path(32768);
+    DWORD count = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+    if (!count || count >= path.size()) throw std::runtime_error("Cannot locate executable directory");
+    return std::filesystem::path(std::wstring(path.data(), count)).parent_path() / L"assets";
+}
+}
+
+LoadoutUI::LoadoutUI() = default;
+LoadoutUI::~LoadoutUI() { ShutdownModelView(); }
+
+void LoadoutUI::ShutdownModelView()
+{
+    m_weaponViewer.reset();
+    if (m_modelCOMInitialized) CoUninitialize();
+    m_modelCOMInitialized = false;
+    m_modelAttempted = false;
+}
 
 //
 // ============================================================================
@@ -204,6 +228,8 @@ void LoadoutUI::RefreshWeapons()
 					entry.name = std::move(name);
 					entry.address = address;
 					entry.weapon = weapon;
+                    if (weapon.pModelName)
+                        g_PSXMemory.ReadString(eemem + weapon.pModelName, entry.modelName, 128);
 
 					m_weapons.push_back(
 						std::move(entry)
@@ -293,6 +319,82 @@ void LoadoutUI::RefreshWeapons()
 	RefreshLegalAmmo();
 }
 
+void LoadoutUI::SetupModelView(ID3D11Device* device, const std::filesystem::path& assetOverride)
+{
+    ShutdownModelView();
+    m_modelAttempted = true;
+    m_modelError.clear();
+    try
+    {
+        m_modelAssetPath = assetOverride.empty() ? ModelAssetDirectory() : assetOverride;
+        if (!device) throw std::runtime_error("DX11 device is not ready");
+        HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        m_modelCOMInitialized = SUCCEEDED(com);
+        if (FAILED(com) && com != RPC_E_CHANGED_MODE)
+            throw std::runtime_error("COM initialization failed: " + std::to_string(static_cast<unsigned>(com)));
+        auto viewer = std::make_unique<WeaponViewer>();
+        viewer->Init(device, m_modelAssetPath);
+        m_weaponViewer = std::move(viewer);
+    }
+    catch (const std::exception& e)
+    {
+        m_modelError = e.what();
+        ShutdownModelView();
+        m_modelAttempted = true; // Retry only when requested, not every frame.
+    }
+}
+
+void LoadoutUI::DrawModelView(ID3D11DeviceContext* context)
+{
+    if (!m_modelAttempted)
+    {
+        Microsoft::WRL::ComPtr<ID3D11Device> device;
+        context->GetDevice(&device);
+        SetupModelView(device.Get());
+    }
+    ImGui::SetNextWindowSize(ImVec2(1000, 650), ImGuiCond_FirstUseEver);
+    bool visible = ImGui::Begin("Weapon model preview");
+    if (visible)
+    {
+        if (!m_modelError.empty())
+        {
+            ImGui::TextWrapped("Model preview unavailable: %s", m_modelError.c_str());
+            ImGui::TextWrapped("Assets: %s", m_modelAssetPath.u8string().c_str());
+            ImGui::TextWrapped("Rebuild the project to deploy its assets folder beside SOCOM-ESP.exe.");
+            if (ImGui::Button("Retry loading models"))
+            {
+                Microsoft::WRL::ComPtr<ID3D11Device> device;
+                context->GetDevice(&device);
+                SetupModelView(device.Get());
+            }
+        }
+        else if (m_weaponViewer)
+        {
+            ImGui::Checkbox("Browse all models", &m_browseModels);
+            if (m_browseModels)
+                m_weaponViewer->DrawPanel(context, ImGui::GetContentRegionAvail());
+            else
+            {
+                ImGui::Combo("Textures", &m_modelTextureMode, "Original\0Replacement\0Compare\0");
+                ImGui::Checkbox("Low detail", &m_modelLowDetail);
+                if (m_selectedWeapon >= 0 && m_selectedWeapon < static_cast<int>(m_weapons.size()))
+                {
+                    const auto& selected = m_weapons[m_selectedWeapon];
+                    ImGui::Text("%s | model: %s", selected.name.c_str(), selected.modelName.c_str());
+                    if (!selected.modelName.empty() && m_weaponViewer->SelectModel(selected.modelName.c_str()))
+                    {
+                        m_weaponViewer->SetLowDetail(m_modelLowDetail);
+                        ImGui::TextDisabled("Drag to orbit | Wheel to zoom");
+                        m_weaponViewer->DrawSelected(context, ImGui::GetContentRegionAvail(), m_modelTextureMode);
+                    }
+                    else ImGui::TextWrapped("No extracted model for this weapon. Use Browse all models to choose one manually.");
+                }
+                else ImGui::TextWrapped("Select a weapon in the loadout editor, or enable Browse all models.");
+            }
+        }
+    }
+    ImGui::End();
+}
 
 //
 // ============================================================================
@@ -1654,4 +1756,81 @@ void LoadoutUI::Draw()
 	//
 
 	DrawLoadouts();
+
+
+
+	DrawModelView(g_dxWindow->GetDeviceContext());
+}
+// Runs the real integration and the project's ImGui 1.91.4/DX11 backend without
+// opening the overlay or invoking the game-update loop or loadout writes.
+int LoadoutUI::RunModelViewerSelfTest()
+{
+    using Microsoft::WRL::ComPtr;
+    ComPtr<ID3D11Device> device;
+    ComPtr<ID3D11DeviceContext> context;
+    HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0,
+        nullptr, 0, D3D11_SDK_VERSION, &device, nullptr, &context);
+    if (FAILED(hr)) hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0,
+        nullptr, 0, D3D11_SDK_VERSION, &device, nullptr, &context);
+    if (FAILED(hr)) { std::cerr << "Cannot create test device\n"; return 1; }
+    ImGui::CreateContext();
+    ImGui::GetIO().IniFilename = nullptr;
+    ImGui::GetIO().DisplaySize = ImVec2(1100, 750);
+    ImGui::GetIO().DeltaTime = 1.f / 60.f;
+    if (!ImGui_ImplDX11_Init(device.Get(), context.Get())) { ImGui::DestroyContext(); return 1; }
+    int result = 0;
+    try
+    {
+        LoadoutUI ui;
+        auto assets = ModelAssetDirectory();
+        auto output = assets.parent_path() / "model-viewer-test";
+        std::filesystem::create_directories(output);
+        ui.SetupModelView(device.Get(), output / "intentionally-missing-assets");
+        if (ui.m_weaponViewer || ui.m_modelError.empty() || ui.m_modelCOMInitialized)
+            throw std::runtime_error("Missing-assets recovery failed");
+        ImGui_ImplDX11_NewFrame(); ImGui::NewFrame();
+        ui.DrawModelView(context.Get()); ImGui::Render();
+        ui.SetupModelView(device.Get());
+        if (!ui.m_weaponViewer) throw std::runtime_error(ui.m_modelError);
+        ui.m_weaponViewer->SelfTest(context.Get(), output);
+        for (const char* name : { "glock18", "ak47", "not-an-extracted-model" })
+        {
+            WeaponEntry entry{}; entry.name = name; entry.modelName = name;
+            ui.m_weapons.push_back(std::move(entry));
+        }
+        D3D11_TEXTURE2D_DESC desc{};
+        desc.Width = 1100; desc.Height = 750; desc.MipLevels = desc.ArraySize = 1;
+        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; desc.SampleDesc.Count = 1;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+        ComPtr<ID3D11Texture2D> color; ComPtr<ID3D11RenderTargetView> rtv;
+        if (FAILED(device->CreateTexture2D(&desc, nullptr, &color)) ||
+            FAILED(device->CreateRenderTargetView(color.Get(), nullptr, &rtv)))
+            throw std::runtime_error("Cannot create test render target");
+        const char* captures[] = { "selected-glock", "selected-ak47", "unknown-model", "browser" };
+        for (int frame = 0; frame < 4; ++frame)
+        {
+            ui.m_selectedWeapon = frame < 3 ? frame : 0;
+            ui.m_browseModels = frame == 3;
+            ui.m_modelTextureMode = 2;
+            ImGui_ImplDX11_NewFrame(); ImGui::NewFrame();
+            ui.DrawModelView(context.Get());
+            ImGui::Render();
+            const float bg[] = { .025f, .025f, .025f, 1.f };
+            context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
+            context->ClearRenderTargetView(rtv.Get(), bg);
+            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+            ui.m_weaponViewer->Capture(context.Get(), output / (std::string(captures[frame]) + ".ppm"), color.Get());
+        }
+        ui.ShutdownModelView();
+        if (ui.m_modelCOMInitialized || ui.m_weaponViewer) throw std::runtime_error("Shutdown failed");
+        std::ofstream(output / "integration-result.txt") <<
+            "PASS: executable-relative assets, missing-assets UI/retry, COM cleanup, "
+            "selected Glock/AK47 comparison, unknown-model message, full browser, ImGui 1.91.4 DX11 submission\n";
+        std::cout << "Model viewer integration PASS. Captures: " << output.u8string() << '\n';
+    }
+    catch (const std::exception& e) { std::cerr << e.what() << '\n'; result = 1; }
+    ImGui_ImplDX11_Shutdown();
+    ImGui::DestroyContext();
+    context->ClearState();
+    return result;
 }

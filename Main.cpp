@@ -5,9 +5,12 @@ int emuThread();
 
 static int LastTick = 0;
 
-int main()
+int main(int argc, char** argv)
 {
-	//  load game data
+	if (argc > 1 && std::string(argv[1]) == "--model-viewer-self-test")
+        return LoadoutUI::RunModelViewerSelfTest();
+
+    //  load game data
 	g_SOCOM = std::make_unique<SOCOM>();
 
 	//	Initialize Menu
@@ -75,6 +78,7 @@ int main()
 	//	wcw.join();
 	//	ecw.join();
 
+	g_Menu.reset(); // Release model SRVs and COM on the render thread before DX11 shutdown.
 	g_dxWindow->Shutdown();
 	g_SOCOM->ShutDown();
 
