@@ -25,34 +25,27 @@ Menu::~Menu()
 
 ImRect Menu::GetImGuiMenuBounds()
 {
-    const ImVec2& posClone = g_dxWindow->GetCloneWindowPos();   //  get the position of the cloned application window
     const ImVec2& szClone = g_dxWindow->GetCloneWindowSize();   //  get the size of the cloned application window
     const ImVec2& halfClone = szClone * .5;                     //  half application window size
 
     //  Get Window Size
     ImVec2 szMenu(halfClone);           //  overlay imgui menu window size
     ImVec2 szMenuMax(800.f, 600.f);     //  max overlay imgui menu window size
-    szMenu.x = (szMenu.x > szMenuMax.x) ? szMenuMax.x : szMenu.x;
-    szMenu.y = (szMenu.y > szMenuMax.y) ? szMenuMax.y : szMenu.y;
+    szMenu.x = std::min(szMenu.x, szMenuMax.x);
+    szMenu.y = std::min(szMenu.y, szMenuMax.y);
 
     //  Get Window Position
-    ImVec2 posMenu = posClone + halfClone - szMenu * .5;   //  overlay imgui menu window position
+    ImVec2 posMenu = halfClone - (szMenu * .5);   //  overlay imgui menu window position
     return ImRect(posMenu, posMenu + szMenu);
 }
 
-ImRect Menu::GetCloneOverlayBounds()
+ImRect Menu::GetOverlayBounds()
 {
-    return ImRect(
-        g_dxWindow->GetCloneWindowPos(),
-        g_dxWindow->GetCloneWindowPos() + g_dxWindow->GetCloneWindowSize()
-    );
-}
+    const ImVec2 size = g_dxWindow->GetCloneWindowSize();
 
-ImRect Menu::GetClientScreenBounds()
-{
     return ImRect(
-        ImVec2(0, 0),
-        ImVec2(g_dxWindow->GetScreenSize())
+        ImVec2(0.0f, 0.0f),
+        size
     );
 }
 
@@ -77,11 +70,9 @@ void Menu::MainMenu()
         return;
     }
 
-    const float exitHeight =
-        ImGui::GetTextLineHeightWithSpacing() * 2.f;
+    const float exitHeight = ImGui::GetTextLineHeightWithSpacing() * 2.f;
 
-    const float footerSpacing =
-        ImGui::GetStyle().ItemSpacing.y;
+    const float footerSpacing = ImGui::GetStyle().ItemSpacing.y;
 
     //
     // Reserve the bottom of the window for EXIT.
@@ -95,8 +86,7 @@ void Menu::MainMenu()
         false
     );
 
-    const float width =
-        ImGui::GetContentRegionAvail().x;
+    const float width = ImGui::GetContentRegionAvail().x;
 
     if (ImGui::BeginTabBar("##main_tab_bar"))
     {
@@ -258,12 +248,19 @@ void Menu::MainMenu()
 
 void Menu::SHROUD()
 {
-    const ImRect& wndw = GetClientScreenBounds();
+    const ImRect& wndw = GetOverlayBounds();
     ImGui::SetNextWindowPos(wndw.Min);
     ImGui::SetNextWindowSize(wndw.GetSize());
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4());
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
-    if (!ImGui::Begin("##SHROUDWINDOW", (bool*)true, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs))
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar
+        | ImGuiWindowFlags_NoResize
+        | ImGuiWindowFlags_NoMove
+        | ImGuiWindowFlags_NoScrollbar
+        | ImGuiWindowFlags_NoSavedSettings
+        | ImGuiWindowFlags_NoInputs;
+
+    if (!ImGui::Begin("##SHROUDWINDOW", nullptr, flags))
     {
         ImGui::PopStyleColor();
         ImGui::PopStyleVar();
@@ -281,27 +278,22 @@ void Menu::SHROUD()
 
 void Menu::HUD()
 {
-    const ImRect& wndw = GetCloneOverlayBounds();
+    const ImRect& wndw = GetOverlayBounds();
     ImGui::SetNextWindowPos(wndw.Min);
     ImGui::SetNextWindowSize(wndw.GetSize());
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
-    if (!ImGui::Begin("##HUDWINDOW", (bool*)true, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs))
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs;
+    if (!ImGui::Begin("##HUDWINDOW", nullptr, flags))
     {
-        ImGui::PopStyleColor();
+        ImGui::PopStyleColor(2);
         ImGui::PopStyleVar();
         ImGui::End();
         return;
     }
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar();
-
-
-    ImGuiStyle style = ImGui::GetStyle();
-    ImDrawList* pDraw = ImGui::GetWindowDrawList();
-    auto center = wndw.GetCenter();
-    auto top_center = ImVec2({ center.x, wndw.Min.y });
 
     if (this->bESP)
         RenderCache();
@@ -312,9 +304,13 @@ void Menu::HUD()
     ImGui::End();
 }
 
-DxWindow::SOverlay Menu::GetOverlay() { return elements; }
+const DxWindow::SOverlay& Menu::GetOverlay() const { return elements; }
 
-void Menu::UpdateOverlayViewState(bool bState) { elements.bIsShown = bState; }
+void Menu::SetVisible(bool visible)
+{
+    bShowMenu = visible;
+    elements.bIsShown = visible;
+}
 
 void Menu::RenderCache()
 {
@@ -461,7 +457,7 @@ void Menu::RenderAnalytics()
         }
     }
 
-    const ImRect& wndw = GetCloneOverlayBounds();
+    const ImRect& wndw = GetOverlayBounds();
     ImGui::SetNextWindowPos(wndw.Min + wndw.GetSize() * .01f);
     ImGui::SetNextWindowBgAlpha(0.75f);
 

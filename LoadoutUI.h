@@ -4,6 +4,12 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+#include <filesystem>
+
+class WeaponViewer;
+struct ID3D11Device;
+struct ID3D11DeviceContext;
 
 
 class LoadoutUI
@@ -11,6 +17,14 @@ class LoadoutUI
 private:
 
     bool m_initialized{ false };
+    std::unique_ptr<WeaponViewer> m_weaponViewer;
+    bool m_modelCOMInitialized{ false };
+    bool m_modelAttempted{ false };
+    bool m_browseModels{ false };
+    bool m_modelLowDetail{ false };
+    int m_modelTextureMode{ 1 };
+    std::string m_modelError;
+    std::filesystem::path m_modelAssetPath;
 
     //
     // =========================================================================
@@ -21,6 +35,7 @@ private:
     struct WeaponEntry
     {
         std::string name;
+        std::string modelName;
 
         i32_t address{ 0 };
 
@@ -184,6 +199,10 @@ private:
     // the currently selected weapon.
     void RefreshLegalAmmo();
 
+    void SetupModelView(ID3D11Device* device, const std::filesystem::path& assetOverride = {});
+    void ShutdownModelView();
+    void DrawModelView(ID3D11DeviceContext* context);
+
 private:
 
     //
@@ -252,5 +271,8 @@ public:
     // =========================================================================
     //
 
+    LoadoutUI();
+    ~LoadoutUI();
+    static int RunModelViewerSelfTest();
     void Draw();
 };

@@ -1529,6 +1529,8 @@ bool pcsx2Memory::Attach(const std::string& name, const DWORD& dwAccess)
 	pcx.dwSPRBase = pcx.dwEEBase + offsetof(EEVirtualMemory, EEVirtualMemory::Scratch);
 	pcxInfo = pcx;
 
+	pcxInfo.hWnd = GetProcessWindowEx(pcxInfo.dwPID);
+
 	return pcxInfo.bAttached;
 }
 
@@ -1545,23 +1547,11 @@ void pcsx2Memory::update()
 {
 	const bool& bAttched = pcxInfo.bAttached;	//	is instance attached to a process ?
 
-	//	check if attached process is running
-	//	if (!IsProcessRunning(pcxInfo.mProcName))
-	//	{
-	//		Detach();	//	close handles and free resources if not already done ( safe to call multiple times if nothing is attached )
-	//		return;
-	//	}
 
-	//	attached process is running, update process information
+	if (!pcxInfo.hWnd || !IsWindow(pcxInfo.hWnd) || !IsWindowVisible(pcxInfo.hWnd))
+		pcxInfo.hWnd = GetProcessWindowEx(pcxInfo.dwPID);
 
-
-	//  attempt to get main process window
-	EnumWindowData eDat;
-	eDat.procId = pcxInfo.dwPID;
-	if (EnumWindows(GetProcWindowEx, reinterpret_cast<LPARAM>(&eDat)))
-		pcxInfo.hWnd = eDat.hwnd;
-
-	//  Get window title
+	//  Update window title
 	char buffer[MAX_PATH];
 	if (pcxInfo.hWnd && GetWindowTextA(pcxInfo.hWnd, buffer, MAX_PATH))
 		pcxInfo.mWndwTitle = std::string(buffer);

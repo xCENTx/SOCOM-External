@@ -3,6 +3,7 @@
 bin/
 debug/
 x64/
+assets/
 
 # exclude personal settings
 *.vcxproj.filters

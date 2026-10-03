@@ -116,7 +116,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_USE_MATH_DEFINES=1;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_USE_MATH_DEFINES=1;NOMINMAX;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
@@ -125,6 +125,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d3dcompiler.lib;windowscodecs.lib;ole32.lib;comdlg32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -133,7 +134,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_USE_MATH_DEFINES=1;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_USE_MATH_DEFINES=1;NOMINMAX;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
@@ -144,6 +145,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d3dcompiler.lib;windowscodecs.lib;ole32.lib;comdlg32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -165,7 +167,21 @@
     <ClInclude Include="libs\Memory\exMemory.hpp" />
     <ClInclude Include="Menu.h" />
     <ClInclude Include="LoadoutUI.h" />
+    <ClInclude Include="weapon_viewer.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ModelViewerAsset Include="assets\**\*" Exclude="assets\replacements.tsv;assets\viewer-settings.txt;assets\match-report.json" />
+    <ModelViewerTool Include="tools\match_pcsx2_textures.py;tools\requirements.txt" />
+    <ModelViewerSetting Include="assets\replacements.tsv;assets\viewer-settings.txt;assets\match-report.json" />
+  </ItemGroup>
+  <Target Name="DeployModelViewerAssets" AfterTargets="Build">
+    <Error Condition="!Exists('$(ProjectDir)assets\catalog.tsv')" Text="Model assets are missing: restore the project assets folder." />
+    <Copy SourceFiles="@(ModelViewerAsset)" DestinationFiles="@(ModelViewerAsset->'$(OutDir)assets\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ModelViewerTool)" DestinationFiles="@(ModelViewerTool->'$(OutDir)tools\%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)watch_texture_mappings.bat" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <!-- Preserve replacement paths/mappings edited in the running application. -->
+    <Copy SourceFiles="@(ModelViewerSetting)" DestinationFiles="@(ModelViewerSetting->'$(OutDir)assets\%(Filename)%(Extension)')" Condition="!Exists('$(OutDir)assets\%(ModelViewerSetting.Filename)%(ModelViewerSetting.Extension)')" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
