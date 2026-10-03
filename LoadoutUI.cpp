@@ -371,13 +371,13 @@ void LoadoutUI::DrawModelView(ID3D11DeviceContext* context)
         }
         else if (m_weaponViewer)
         {
-            ImGui::Checkbox("Browse all models", &m_browseModels);
-            if (m_browseModels)
-                m_weaponViewer->DrawPanel(context, ImGui::GetContentRegionAvail());
-            else
-            {
-                ImGui::Combo("Textures", &m_modelTextureMode, "Original\0Replacement\0Compare\0");
-                ImGui::Checkbox("Low detail", &m_modelLowDetail);
+            //	ImGui::Checkbox("Browse all models", &m_browseModels);
+            //	if (m_browseModels)
+            //	    m_weaponViewer->DrawPanel(context, ImGui::GetContentRegionAvail());
+            //	else
+            //	{
+                // ImGui::Combo("Textures", &m_modelTextureMode, "Original\0Replacement\0Compare\0");
+                // ImGui::Checkbox("Low detail", &m_modelLowDetail);
                 if (m_selectedWeapon >= 0 && m_selectedWeapon < static_cast<int>(m_weapons.size()))
                 {
                     const auto& selected = m_weapons[m_selectedWeapon];
@@ -385,13 +385,13 @@ void LoadoutUI::DrawModelView(ID3D11DeviceContext* context)
                     if (!selected.modelName.empty() && m_weaponViewer->SelectModel(selected.modelName.c_str()))
                     {
                         m_weaponViewer->SetLowDetail(m_modelLowDetail);
-                        ImGui::TextDisabled("Drag to orbit | Wheel to zoom");
+                        ImGui::TextDisabled("Drag to orbit | shift + Wheel to zoom");
                         m_weaponViewer->DrawSelected(context, ImGui::GetContentRegionAvail(), m_modelTextureMode);
                     }
                     else ImGui::TextWrapped("No extracted model for this weapon. Use Browse all models to choose one manually.");
                 }
                 else ImGui::TextWrapped("Select a weapon in the loadout editor, or enable Browse all models.");
-            }
+            //	}
         }
     }
     ImGui::EndChild(); // Required even when BeginChild returns false (clipped).

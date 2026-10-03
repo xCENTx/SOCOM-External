@@ -103,7 +103,7 @@ private:
         d.Format=DXGI_FORMAT_D24_UNORM_S8_UINT;d.BindFlags=D3D11_BIND_DEPTH_STENCIL;Ptr<ID3D11Texture2D> dt;Check(device->CreateTexture2D(&d,nullptr,&dt));Check(device->CreateDepthStencilView(dt.Get(),nullptr,&fresh.depth));fresh.width=w;fresh.height=h;t=std::move(fresh);
     }
     Mesh& Current(){const auto& name=names.at(selected);for(auto& m:meshes)if(m.name==name&&m.lod==(low?"low":"high"))return m;for(auto& m:meshes)if(m.name==name)return m;throw std::runtime_error("No model variant");}
-    void ResetView(){yaw=.5f;pitch=.22f;zoom=1;orbiting=false;atlasMaterial=0;}
+    void ResetView(){yaw=.5f;pitch=.22f;zoom=.75f;orbiting=false;atlasMaterial=0;}
     void SaveSettings(){std::ofstream f(assets/"viewer-settings.txt");f<<rootPath.u8string()<<'\n';if(!f)message="Could not save settings";}
     void SaveMappings(){
         auto temp=assets/"replacements.tsv.tmp";std::ofstream f(temp);
@@ -239,10 +239,11 @@ float4 PSMain(Output i):SV_TARGET{float4 c=albedo.Sample(texSampler,i.uv);clip(c
     // Call at most once per frame per WeaponViewer instance (targets are reused).
     // mode: 0 original, 1 replacement with original fallback, 2 side-by-side.
     void DrawSelected(ID3D11DeviceContext* ctx,ImVec2 size,int mode=1){
+        spinning = true; if (zoom > .75f)zoom= .75f; float zoomMin=.65f;float zoomMax=4.f;
         if(size.x<4||size.y<4)return;int panes=mode==2?2:1;float w=(size.x-(panes-1)*8)/panes;if(w<1)return;PollReplacements();
         bool hover=false;for(int i=0;i<panes;i++){if(i)ImGui::SameLine(0,8);Resize(targets[i],(UINT)w,(UINT)size.y);ImGui::Image((ImTextureID)(intptr_t)targets[i].image.Get(),ImVec2(w,size.y));hover|=ImGui::IsItemHovered();}
         if(hover&&ImGui::IsMouseClicked(ImGuiMouseButton_Left))orbiting=true;if(!ImGui::IsMouseDown(ImGuiMouseButton_Left))orbiting=false;
-        if(orbiting){yaw-=ImGui::GetIO().MouseDelta.x*.01f;pitch=std::clamp(pitch+ImGui::GetIO().MouseDelta.y*.01f,-1.45f,1.45f);}if(hover)zoom=std::clamp(zoom*expf(-ImGui::GetIO().MouseWheel*.12f),.65f,4.f);
+        if(orbiting){yaw-=ImGui::GetIO().MouseDelta.x*.01f;pitch=std::clamp(pitch+ImGui::GetIO().MouseDelta.y*.01f,-1.45f,1.45f);}if(hover)zoom=std::clamp(zoom*expf(-ImGui::GetIO().MouseWheel*.12f),.20f,1.0f);if (spinning)yaw+=ImGui::GetIO().DeltaTime*.5f;
         for(int i=0;i<panes;i++)Render(ctx,i,targets[i].width,targets[i].height,mode==1||(mode==2&&i==1));
     }
     void SetLowDetail(bool enabled){low=enabled;}
