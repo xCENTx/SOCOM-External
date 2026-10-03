@@ -159,15 +159,14 @@
     <ClCompile Include="libs\DXWindow\DXWindow .cpp" />
     <ClCompile Include="libs\SDK\engine.cpp" />
     <ClCompile Include="libs\SDK\SOCOM.cpp" />
-    <ClCompile Include="Main.cpp" />
-    <ClCompile Include="Menu.cpp" />
-    <ClCompile Include="LoadoutUI.cpp" />
+    <ClCompile Include="src\LoadoutUI.cpp" />
+    <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\Menu.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="libs\Memory\exMemory.hpp" />
-    <ClInclude Include="Menu.h" />
-    <ClInclude Include="LoadoutUI.h" />
-    <ClInclude Include="weapon_viewer.h" />
+    <ClInclude Include="src\LoadoutUI.h" />
+    <ClInclude Include="src\WeaponViewer.h" />
   </ItemGroup>
   <ItemGroup>
     <ModelViewerAsset Include="assets\**\*" Exclude="assets\replacements.tsv;assets\viewer-settings.txt;assets\match-report.json" />

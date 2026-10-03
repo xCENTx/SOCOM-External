@@ -1,9 +1,16 @@
 # exclude binaries and debug output
 .vs/
-bin/
-debug/
 x64/
+Debug/
+Release/
+bin/
+obj/
 assets/
+*.user
+*.suo
+*Dump.txt
+*.bat
+OrdersDump.txt
 
 # exclude personal settings
 *.vcxproj.filters
