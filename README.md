@@ -1,18 +1,23 @@
 # SOCOM-EXTERNAL
-proof of concept
 
 <p align="center">
-<img src="https://github.com/user-attachments/assets/928b36a6-ea58-4a3d-836f-aa7ca653d73e">
-<img src="https://github.com/user-attachments/assets/6e969493-7288-4ead-83ed-e42d7a4a144d">
+  <img width="707" height="552" alt="SOCOM External" src="https://github.com/user-attachments/assets/3e02be13-5b62-454e-ac27-689f36af205d" />
 </p>
 
-# SUMMARY
-This repository provides a demonstration ESP code for the PlayStation 2 game SOCOM. It makes use of matrices found in the games camera class to project points in the game to the screen following the same projection pipeline that the game utilizes.
+## Summary
 
-# USAGE
-- PCSX2 aspect ratio must be set to "stretch" or "16:19" ( aspect ratios can be cycled with F6 )
-- Game window must be fullscreen ( F11 or double click the game window )
+**SOCOM-EXTERNAL** is an external tool and trainer for the PlayStation 2 game **SOCOM U.S. Navy SEALs** running through PCSX2.
 
-# REQUIREMENTS
+It provides various gameplay and debugging features through external memory access, including ESP using the game's camera matrices to project 3D world coordinates to screen space.
+
+## Usage
+
+- Launch the game through PCSX2 and run **SOCOM-EXTERNAL**.
+- The active PCSX2 game window is detected automatically.
+- Windowed and fullscreen modes are supported.
+
+## Requirements
+
 - PCSX2 v2.0+
-- SOCOM U.S. NAVY SEALs Black Edition ([SCUS-97134](http://redump.org/disc/5229/))
+- SOCOM U.S. Navy SEALs Black Edition ([SCUS-97134](http://redump.org/disc/5229/))
+- Windows
