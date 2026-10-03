@@ -969,32 +969,6 @@ namespace Engine
 				float							Health;						//0x0ED0
 			};	//Size: 0x0ED4
 
-			//	class CZWeapon
-			//	{
-			//	public:
-			//		char							pad_0000[4];				//0x0000
-			//		i32_t							pName;						//0x0004
-			//		i32_t							pNameDesc;					//0x0008
-			//		char							pad_000C[4];				//0x000C
-			//		i32_t							pIconName;					//0x0010
-			//		char							pad_0014[4];				//0x0014
-			//		i32_t							pNameFull;					//0x0018
-			//		i32_t							pBulletImpactName;			//0x001C
-			//		EWeaponFireMode					mMaxFireMode;				//0x0020
-			//		__int32							szMag;						//0x0024
-			//		__int32							defaultMags;				//0x0028
-			//		char							pad_002C[12];				//0x002C
-			//		float							maxRange;					//0x0038
-			//		float							effectiveRange;				//0x003C
-			//		char							pad_0040[4];				//0x0040
-			//		float							impactRadius;				//0x0044
-			//		float							fireWait;					//0x0048
-			//		char							pad_004C[4];				//0x004C
-			//		bool							bReloadAfterShot;			//0x0050
-			//		char							pad_0051[415];				//0x0051
-			//	
-			//	};	//Size: 0x0080
-
 			class CZWeapon
 			{
 			public:

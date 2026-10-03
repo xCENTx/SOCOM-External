@@ -1297,7 +1297,7 @@ void LoadoutUI::DrawLoadouts()
 
 
 	//
-	// Meta loadouts
+	// loadouts
 	//
 
 	ImGui::TableSetColumnIndex(0);
@@ -1322,9 +1322,6 @@ void LoadoutUI::DrawPresets()
 	//
 	// These are intentionally data rather than individual
 	// functions so adding/removing presets stays trivial.
-	//
-	// We can expand this list once we decide exactly which
-	// SOCOM "meta" kits we want to ship.
 	//
 
 	static const LoadoutPreset presets[] =
@@ -1384,7 +1381,7 @@ void LoadoutUI::DrawPresets()
 		m_selectedPreset = 0;
 	}
 
-	ImGui::SeparatorText("META LOADOUTS");
+	ImGui::SeparatorText("LOADOUTS");
 
 
 	//
@@ -1395,7 +1392,7 @@ void LoadoutUI::DrawPresets()
 		ImGui::GetTextLineHeightWithSpacing() * 5.f;
 
 	if (ImGui::BeginListBox(
-		"##meta_loadouts",
+		"##op_loadouts",
 		ImVec2(-1.f, listHeight)))
 	{
 		for (int i = 0;
@@ -1438,7 +1435,7 @@ void LoadoutUI::DrawPresets()
 	//
 
 	if (ImGui::Button(
-		"APPLY META LOADOUT",
+		"APPLY LOADOUT",
 		ImVec2(
 			ImGui::GetContentRegionAvail().x,
 			0.f
@@ -1512,7 +1509,7 @@ void LoadoutUI::DrawSavedLoadouts()
 	// Description / status line
 	//
 	// This intentionally occupies the same vertical
-	// space as the meta loadout description.
+	// space as the loadout description.
 	//
 
 	if (hasSelection)
