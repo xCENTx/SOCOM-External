@@ -1,7 +1,7 @@
 #include "LoadoutUI.h"
 #include <DXWindow/DXWindow.h>
 #include "Menu.h"
-#include "weapon_viewer.h"
+#include "WeaponViewer.h"
 
 #include <algorithm>
 #include <memory>
