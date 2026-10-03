@@ -18,7 +18,11 @@ int main(int argc, char** argv)
 
 	//	Initialize d3d window
 	g_dxWindow = std::make_unique<DxWindow>();
-	g_dxWindow->Init();
+	if (!g_dxWindow->Init())
+		EXIT_FAILURE;
+
+	g_dxWindow->UpdateClone(g_PSXMemory.GetPsxInfo().hWnd);
+	g_dxWindow->SetWindowFocus(g_PSXMemory.GetPsxInfo().hWnd);
 
 	//	Initialize Background Thread
 	//	std::thread wcw(mainthread);
@@ -33,7 +37,7 @@ int main(int argc, char** argv)
 			if (GetAsyncKeyState(VK_RCONTROL) & 0x8000 && bTimer)
 			{
 				g_Menu->bShowMenu ^= 1;
-				g_Menu->UpdateOverlayViewState(g_Menu->bShowMenu);
+				g_Menu->SetVisible(g_Menu->bShowMenu);
 				switch (g_Menu->bShowMenu)
 				{
 				case(true): g_dxWindow->SetWindowFocus(g_dxWindow->GetWindowHandle()); break;
@@ -59,8 +63,8 @@ int main(int argc, char** argv)
 		/* DX WINDOW UPDATE */
 		auto t2 = std::chrono::steady_clock::now();
 		{
-			g_dxWindow->CloneUpdate(g_PSXMemory.GetPsxInfo().hWnd);
-			g_dxWindow->Update(g_Menu->GetOverlay());
+			g_dxWindow->UpdateClone(g_PSXMemory.GetPsxInfo().hWnd);
+			g_dxWindow->Tick(g_Menu->GetOverlay());
 		}
 
 		auto t3 = std::chrono::steady_clock::now();
