@@ -352,8 +352,9 @@ void LoadoutUI::DrawModelView(ID3D11DeviceContext* context)
         context->GetDevice(&device);
         SetupModelView(device.Get());
     }
-    ImGui::SetNextWindowSize(ImVec2(1000, 650), ImGuiCond_FirstUseEver);
-    bool visible = ImGui::Begin("Weapon model preview");
+    // Reserve space for the inventory below; a zero-height child consumes it all.
+    const float previewHeight = std::clamp(ImGui::GetContentRegionAvail().y * .5f, 260.f, 400.f);
+    bool visible = ImGui::BeginChild("##model_preview", ImVec2(0.f, previewHeight), ImGuiChildFlags_Borders);
     if (visible)
     {
         if (!m_modelError.empty())
@@ -393,7 +394,7 @@ void LoadoutUI::DrawModelView(ID3D11DeviceContext* context)
             }
         }
     }
-    ImGui::End();
+    ImGui::EndChild(); // Required even when BeginChild returns false (clipped).
 }
 
 //
@@ -1386,6 +1387,8 @@ void LoadoutUI::DrawAmmoInfo()
 
 void LoadoutUI::DrawLoadouts()
 {
+
+
 	if (!ImGui::BeginTable(
 		"##loadout_lists",
 		2,
@@ -1731,6 +1734,8 @@ void LoadoutUI::Draw()
 	// Current inventory / slot selection.
 	//
 
+	DrawModelView(g_dxWindow->GetDeviceContext());
+	ImGui::Spacing();
 	DrawInventory();
 
 	ImGui::Spacing();
@@ -1756,10 +1761,6 @@ void LoadoutUI::Draw()
 	//
 
 	DrawLoadouts();
-
-
-
-	DrawModelView(g_dxWindow->GetDeviceContext());
 }
 // Runs the real integration and the project's ImGui 1.91.4/DX11 backend without
 // opening the overlay or invoking the game-update loop or loadout writes.
@@ -1789,7 +1790,11 @@ int LoadoutUI::RunModelViewerSelfTest()
         if (ui.m_weaponViewer || ui.m_modelError.empty() || ui.m_modelCOMInitialized)
             throw std::runtime_error("Missing-assets recovery failed");
         ImGui_ImplDX11_NewFrame(); ImGui::NewFrame();
-        ui.DrawModelView(context.Get()); ImGui::Render();
+        ImGui::SetNextWindowSize(ImVec2(1000, 680), ImGuiCond_Always);
+        ImGui::Begin("SOCOM - Loadout");
+        ui.DrawModelView(context.Get());
+        ui.DrawInventory();
+        ImGui::End(); ImGui::Render();
         ui.SetupModelView(device.Get());
         if (!ui.m_weaponViewer) throw std::runtime_error(ui.m_modelError);
         ui.m_weaponViewer->SelfTest(context.Get(), output);
@@ -1813,7 +1818,12 @@ int LoadoutUI::RunModelViewerSelfTest()
             ui.m_browseModels = frame == 3;
             ui.m_modelTextureMode = 2;
             ImGui_ImplDX11_NewFrame(); ImGui::NewFrame();
+            ImGui::SetNextWindowSize(ImVec2(1000, 680), ImGuiCond_Always);
+            ImGui::Begin("SOCOM - Loadout");
+            ui.m_inventory[0].weaponName = ui.m_weapons[ui.m_selectedWeapon].name;
             ui.DrawModelView(context.Get());
+            ui.DrawInventory();
+            ImGui::End();
             ImGui::Render();
             const float bg[] = { .025f, .025f, .025f, 1.f };
             context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
