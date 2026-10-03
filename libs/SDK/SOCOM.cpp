@@ -103,7 +103,46 @@ namespace Engine
 			}
 
 			/* */
-			bool Entity::GetPlayers(std::vector<Classes::CZSealBody>*players)
+			bool Entity::GetEntities(std::vector<Classes::CEntity>* entities)
+			{
+				std::vector<Classes::CEntity> container;
+
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return false;
+
+				auto array = g_PSXMemory.Read<Structs::ZArray>( eemem + Offsets::gEntityArray );
+
+				if (array.count <= 0 || array.begin <= 0 || array.end <= 0)
+					return false;
+
+				i32_t current = array.begin;
+
+				while (current != array.end)
+				{
+					auto it = g_PSXMemory.Read<Structs::ZIterator>( eemem + current );
+
+					if (it.data > 0)
+					{
+						auto entity = g_PSXMemory.Read<Classes::CEntity>( eemem + it.data );
+
+						if (entity.m_EntityType != Enums::ENTITY_TYPE::ENTITY_UNKNOWN)
+							container.push_back(entity);
+					}
+
+					current = it.next;
+				}
+
+				if (container.empty())
+					return false;
+
+				*entities = std::move(container);
+
+				return true;
+			}
+
+			/* */
+			bool Entity::GetPlayers(std::vector<Classes::CZSealBody>* players)
 			{
 				std::vector<Classes::CZSealBody> seals;
 
@@ -111,30 +150,36 @@ namespace Engine
 				if (!eemem)
 					return false;
 
-				auto sealArray = g_PSXMemory.Read<Structs::ZArray>(eemem + Offsets::gEntityArray);
-				if (sealArray.count <= 1 || sealArray.begin <= 0 || sealArray.end <= 0)
+				auto array = g_PSXMemory.Read<Structs::ZArray>( eemem + Offsets::gEntityArray );
+
+				if (array.count <= 0 || array.begin <= 0 || array.end <= 0)
 					return false;
 
+				i32_t current = array.begin;
 
-				auto it = g_PSXMemory.Read<Structs::ZIterator>(eemem + sealArray.begin);
-				auto end = g_PSXMemory.Read<Structs::ZIterator>(eemem + it.prev);
-				do
+				while (current != array.end)
 				{
-					auto data = it.data;
-					if (data > 0)
+					auto it = g_PSXMemory.Read<Structs::ZIterator>( eemem + current );
+
+					if (it.data > 0)
 					{
-						auto seal = g_PSXMemory.Read<Classes::CZSealBody>(eemem + data);
-						if (seal.pName)
+						auto seal = g_PSXMemory.Read<Classes::CZSealBody>( eemem + it.data );
+
+						if (seal.pName && seal.m_EntityType == Enums::ENTITY_TYPE::ENTITY_SEAL)
+						{
 							seals.push_back(seal);
+						}
 					}
 
-					it = g_PSXMemory.Read<Structs::ZIterator>(eemem + it.next);
+					current = it.next;
+				}
 
-				} while (it.data != end.data);
+				if (seals.empty())
+					return false;
 
-				*players = seals;
+				*players = std::move(seals);
 
-				return players->size() > 0;
+				return true;
 			}
 
 			/* */
@@ -257,6 +302,485 @@ namespace Engine
 
 				return g_PSXMemory.Read<int>(pFPS);
 			}
+
+			void Dumper::Orders()
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				int32_t numTuples = g_PSXMemory.Read<int32_t>(eemem + Offsets::gOrdersCount);
+				if (numTuples <= 0 || numTuples > 2044)
+					return;
+
+				std::vector<Classes::RecoTuple> orders(numTuples);
+				if (g_PSXMemory.ReadMemory( eemem + Offsets::gOrdersArray, orders.data(), sizeof(Classes::RecoTuple) * numTuples) == false)
+					return;
+
+				auto pHud = g_PSXMemory.Read<i32_t>(eemem + Offsets::gHud);
+				if (!pHud)
+					return;
+
+				auto order_state = g_PSXMemory.Read<Classes::OrdersMenu>(eemem + (pHud + offsetof(Classes::CHud, Classes::CHud::m_OrderMenu)));
+
+				printf("========================================\n");
+				printf("OrdersMenu Dump\n");
+				printf("num_orders = %d (0x%X)\n", orders.size(), orders.size());
+				printf("selectedTeam    = %d (0x%X)\n", order_state.currentSelection, order_state.currentSelection);
+				printf("selectedCommand = %d (0x%X)\n", order_state.currentColumn, order_state.currentColumn);
+				printf("========================================\n\n");
+				for (size_t i = 0; i < orders.size(); ++i)
+				{
+					const auto& tuple = orders[i];
+
+					printf(
+						"[%03d] "
+						"subject='%s' [%d,%d] | "
+						"verb='%s' [%d,%d] | "
+						"object='%s' [%d,%d] | "
+						"send_cmd=%d "
+						"cmd=%u "
+						"data=%08X "
+						"unit=%08X\n",
+
+						i,
+
+						tuple.subject,
+						tuple.subjectID,
+						tuple.snum,
+
+						tuple.verb,
+						tuple.verbID,
+						tuple.vnum,
+
+						tuple.object,
+						tuple.objectID,
+						tuple.onum,
+
+						tuple.send_command ? 1 : 0,
+						static_cast<unsigned int>(tuple.command),
+						tuple.pData,
+						tuple.pUnit
+					);
+				}
+
+				return; 
+
+				/* file ?*/
+				//	{
+				//		FILE* fp = nullptr;
+				//		fopen_s(&fp, "OrdersDump.txt", "w");
+				//		
+				//		if (!fp)
+				//			return;
+				//		
+				//		fprintf(fp, "========================================\n");
+				//		fprintf(fp, "OrdersMenu Tuple Dump\n");
+				//		fprintf(fp, "num_tuples = %d (0x%X)\n", numTuples, numTuples);
+				//		fprintf(fp, "========================================\n\n");
+				//		
+				//		for (int i = 0; i < numTuples; ++i)
+				//		{
+				//			const auto& tuple = orders[i];
+				//		
+				//			fprintf(
+				//				fp,
+				//				"[%03d] "
+				//				"C0='%s' [%d,%d] | "
+				//				"C1='%s' [%d,%d] | "
+				//				"C2='%s' [%d,%d] | "
+				//				"flag90=%d "
+				//				"cmd=%u "
+				//				"arg=%08X "
+				//				"ctrl=%08X\n",
+				//		
+				//				i,
+				//		
+				//				tuple.column[0].text,
+				//				tuple.column[0].recoWordId,
+				//				tuple.column[0].selectionIndex,
+				//		
+				//				tuple.column[1].text,
+				//				tuple.column[1].recoWordId,
+				//				tuple.column[1].selectionIndex,
+				//		
+				//				tuple.column[2].text,
+				//				tuple.column[2].recoWordId,
+				//				tuple.column[2].selectionIndex,
+				//		
+				//				tuple.flag90 ? 1 : 0,
+				//				static_cast<unsigned int>(tuple.command),
+				//				tuple.commandArg,
+				//				tuple.pController
+				//			);
+				//		}
+				//		
+				//		fclose(fp);
+				//	}
+			}
+
+			void Dumper::Teams()
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				int32_t teamCount = g_PSXMemory.Read<int32_t>(eemem + Offsets::gTeamTablesCount);
+				if (teamCount <= 0 || teamCount > 11)
+					return;
+
+				std::vector<Structs::TEAM_TABLE> teams(teamCount);
+				if (g_PSXMemory.ReadMemory(eemem + Offsets::gTeamTablesArray, teams.data(), sizeof(Structs::TEAM_TABLE) * teamCount) == false)
+					return;
+
+				printf("\n===== TEAM TABLE =====\n");
+				printf("count = %d (0x%X)\n", teamCount, teamCount);
+
+				for (int i = 0; i < teamCount; ++i)
+				{
+					auto team = teams[i];
+
+					printf(
+						"[%02d] "
+						"text=\"%-20s\" "
+						"reco=\"%-20s\" "
+						"recoId=%d "
+						"type=%u "
+						"displayIdx=%d "
+						"has_cmd=%u "
+						"unit=%08X "
+						"display=%08X\n",
+						i,
+						team.displayText,
+						team.recoText,
+						team.recoWordId,
+						team.teamType,
+						team.displayIndex,
+						team.has_cmd,
+						team.pUnit,
+						team.descriptionText
+					);
+				}
+			}
+
+			void Dumper::Commands()
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				int32_t cmdCount = g_PSXMemory.Read<int32_t>(eemem + Offsets::gCommandsCount);
+				int32_t pCommands = g_PSXMemory.Read<int32_t>(eemem + Offsets::gCommandsArray);
+				if (cmdCount <= 0 || pCommands <= 0)
+					return;
+
+				std::vector<Structs::CMD_TABLE> commands(cmdCount);
+				if (g_PSXMemory.ReadMemory(eemem + pCommands, commands.data(), sizeof(Structs::CMD_TABLE) * cmdCount) == false)
+					return;
+
+				printf("\n===== COMMANDS TABLE =====\n");
+				printf("count = %d (0x%X)\n", cmdCount, cmdCount);
+
+				for (int i = 0; i < cmdCount; ++i)
+				{
+					auto cmd = commands[i];
+
+					printf(
+						"[%02d] "
+						"addr=%08X "
+						"text=\"%-20s\" "
+						"reco=\"%-20s\" "
+						"desc=\"%-20s\" "
+						"recoId=%d "
+						"command=%u "
+						"teamMask=%08X "
+						"multiplayerFlag=%u "
+						"subMenuCount=%d "
+						"pSubMenu=%08X "
+						"displayIdx=%d\n",
+						i,
+						pCommands + i * sizeof(Structs::CMD_TABLE),
+						cmd.displayText,
+						cmd.recoText,
+						cmd.description,
+						cmd.recoWordId,
+						cmd.command,
+						cmd.teamMask,
+						cmd.multiplayerFlag,
+						cmd.subMenuCount,
+						cmd.pSubMenu,
+						cmd.displayIndex
+					);
+
+					if (cmd.subMenuCount > 0 && cmd.pSubMenu)
+					{
+						for (int s = 0; s < cmd.subMenuCount; ++s)
+						{
+							Classes::CSubMenu sub = g_PSXMemory.Read<Classes::CSubMenu>( eemem + cmd.pSubMenu + s * sizeof(Classes::CSubMenu) );
+
+							char display[128]{};
+							char explanation[256]{};
+
+							if (sub.pText)
+							{
+								g_PSXMemory.ReadMemory( eemem + sub.pText, display, sizeof(display) - 1 );
+							}
+
+							if (sub.pDisplayData)
+							{
+								g_PSXMemory.ReadMemory( eemem + sub.pDisplayData, explanation, sizeof(explanation) - 1 );
+							}
+
+							printf(
+								"       -> [%02d] "
+								"text=\"%s\" "
+								"explanation=\"%s\" "
+								"data=%08X\n",
+								s,
+								display,
+								explanation,
+								sub.pData
+							);
+						}
+					}
+				}
+			}
+
+			void Dumper::Entities()
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				auto array = g_PSXMemory.Read<Structs::ZArray>( eemem + Offsets::gEntityArray );
+
+				if (array.count <= 0)
+					return;
+
+				printf("ENTITIES: %d\n", array.count);
+
+				int i = 0;
+
+				Container::ZArray_ForEach<Classes::CEntity>( array, [&](const Classes::CEntity& seal, i32_t address)
+					{
+						if (seal.m_EntityType == Enums::ENTITY_TYPE::ENTITY_UNKNOWN)
+							return;
+
+						std::string name;
+
+						if (seal.pName && !g_PSXMemory.ReadString(eemem + seal.pName, name, 32))
+						{
+							return;
+						}
+
+						printf(
+							"[%d] %-24s | Team: 0x%08X | Type: 0x%X\n",
+							i++,
+							name.c_str(),
+							static_cast<unsigned int>(seal.TeamMask),
+							static_cast<unsigned int>(seal.m_EntityType)
+						);
+					}
+				);
+
+				printf("--------------------------------------\n");
+			}
+
+			void Dumper::Pickups()
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				auto array = g_PSXMemory.Read<Structs::ZArray>(eemem + Offsets::gPickups);
+
+				if (array.count <= 0)
+					return;
+
+				printf("PICKUPS: %d\n", array.count);
+
+				int i = 0;
+
+				Container::ZArray_ForEach<Classes::CPickup>(array, [&](const Classes::CPickup& pickup, i32_t address)
+					{
+
+						std::string name;
+						i32_t pName = 0;
+
+						switch (pickup.mType)
+						{
+							case Engine::zdb::Structs::EPickupType::PICKUP_TYPE_WEAPON:
+							{
+
+								if (!pickup.pData)
+									break;
+
+								auto weapon = g_PSXMemory.Read<Classes::CZWeapon>(eemem + pickup.pData);
+
+								pName = weapon.pName;
+								break;
+							}
+							case Engine::zdb::Structs::EPickupType::PICKUP_TYPE_AMMO:
+							{
+								if (!pickup.pData)
+									break;
+
+								i32_t pAmmo = g_PSXMemory.Read<i32_t>(eemem + pickup.pData + 0x14);
+
+								if (pAmmo)
+									pAmmo = g_PSXMemory.Read<i32_t>(eemem + pAmmo);
+
+								if (pAmmo)
+								{
+									auto ammo = g_PSXMemory.Read<Classes::CZAmmo>(eemem + pAmmo);
+
+									pName = ammo.pDisplayName;
+								}
+
+								break;
+							}
+
+							case Enums::EPickupType::PICKUP_TYPE_BOMB:
+								break;
+
+							default:
+								break;
+						}
+
+						if (pName)
+							g_PSXMemory.ReadString(eemem + pName, name, 32);
+
+						if (name.empty())
+							name = "<unknown>";
+
+						printf(
+							"[%d] %-24s | Pickup: 0x%08X | Data: 0x%08X | Node: 0x%08X | Type: 0x%X | ID: %d | NetID: %d\n",
+							i++,
+							name.c_str(),
+							static_cast<unsigned int>(address),
+							static_cast<unsigned int>(pickup.pData),
+							static_cast<unsigned int>(pickup.pNode),
+							static_cast<unsigned int>(pickup.mType),
+							pickup.mID,
+							pickup.mNetID
+						);
+					}
+				);
+
+				printf("--------------------------------------\n");
+			}
+
+			void Dumper::Weapons()
+			{
+				__int64 eemem = g_PSXMemory.GetEEMemory();
+				if (!eemem)
+					return;
+
+				auto array = g_PSXMemory.Read<Structs::ZArray>(
+					eemem + Offsets::gWeaponsArray
+					);
+
+				if (array.count <= 0)
+					return;
+
+				printf("WEAPONS: %d\n", array.count);
+
+				int i = 0;
+
+				Container::ZArray_ForEach<Classes::CZWeapon>(array, [&](const Classes::CZWeapon& weapon, i32_t address)
+					{
+						std::string name;
+						std::string fullName;
+						std::string impactName;
+
+						if (weapon.pName)
+							g_PSXMemory.ReadString(eemem + weapon.pName, name, 64);
+
+						if (weapon.pModelName)
+							g_PSXMemory.ReadString(eemem + weapon.pModelName, fullName, 64);
+
+						if (weapon.pBulletImpactName)
+							g_PSXMemory.ReadString(eemem + weapon.pBulletImpactName, impactName, 64);
+
+						printf(
+							"[%02d] %-16s | %-24s\n"
+							"     Addr: 0x%08X | Mag: %d | Default Mags: %d | FireMode: 0x%X\n"
+							"     Range: %.2f | Effective: %.2f | Impact Radius: %.2f | Fire Wait: %.3f\n"
+							"     Impact: %s | Reload After Shot: %s\n",
+							i++,
+							name.empty() ? "<unknown>" : name.c_str(),
+							fullName.empty() ? "<unknown>" : fullName.c_str(),
+							static_cast<unsigned int>(address),
+							weapon.szMags,
+							weapon.defaultMags,
+							static_cast<unsigned int>(weapon.maxFireMode),
+							weapon.mMaxRange,
+							weapon.mEffectiveRange,
+							weapon.mImpactRadius,
+							weapon.mFireWait,
+							impactName.empty() ? "<unknown>" : impactName.c_str(),
+							weapon.bReloadAfterShot ? "true" : "false"
+						);
+
+						printf(
+							"\n[%s] Legal Ammo: %d\n",
+							fullName.empty() ? "<unknown>" : fullName.c_str(),
+							weapon.mLegalAmmoList.count
+						);
+
+						Engine::zdb::Tools::Container::ZArray_ForEachAddress(
+							weapon.mLegalAmmoList,
+							[&](i32_t address)
+							{
+								auto ammo =
+									g_PSXMemory.Read<Engine::zdb::Classes::CZAmmo>(
+										eemem + address
+										);
+
+								std::string ammoName;
+
+								if (ammo.pDisplayName)
+								{
+									g_PSXMemory.ReadString(
+										eemem + ammo.pDisplayName,
+										ammoName,
+										64
+									);
+								}
+
+								if (ammoName.empty() && ammo.pAmmoName)
+								{
+									g_PSXMemory.ReadString(
+										eemem + ammo.pAmmoName,
+										ammoName,
+										64
+									);
+								}
+
+								printf(
+									"    [0x%08X] %-24s | ID: %d\n",
+									static_cast<unsigned int>(address),
+									ammoName.empty() ? "<unknown>" : ammoName.c_str(),
+									static_cast<int>(ammo.m_ID)
+								);
+							}
+						);
+					}
+				);
+
+				printf("--------------------------------------\n");
+			}
+
+			void Dumper::Projectiles()
+			{
+
+			}
+
+			void Dumper::Ammo()
+			{
+
+			}
+
 
 			Matrix4x4 Transform::BuildViewToClip(const zdb::Classes::zdb_CCamera& camera)
 			{
@@ -705,24 +1229,24 @@ namespace Engine
 					{
 					case 0 :
 						for (int i = 0; i < czWeapon.defaultMags; i++)
-							czSeal.PrimaryMags[i] = czWeapon.szMag;
+							czSeal.PrimaryMags[i] = czWeapon.szMags;
 						break;
 
 					case 1:
 						for (int i = 0; i < czWeapon.defaultMags; i++)
-							czSeal.SecondaryMags[i] = czWeapon.szMag;
+							czSeal.SecondaryMags[i] = czWeapon.szMags;
 						break;
 
 					case 2:
-						czSeal.EqSlot1Ammo = czWeapon.szMag;
+						czSeal.EqSlot1Ammo = czWeapon.szMags;
 						break;
 
 					case 3: 
-						czSeal.EqSlot2Ammo = czWeapon.szMag;
+						czSeal.EqSlot2Ammo = czWeapon.szMags;
 						break;
 
 					case 4: 
-						czSeal.EqSlot3Ammo = czWeapon.szMag;
+						czSeal.EqSlot3Ammo = czWeapon.szMags;
 						break;
 					
 					default: break;
@@ -765,24 +1289,24 @@ namespace Engine
 				{
 				case 0:
 					for (int i = 0; i < czWeapon.defaultMags; i++)
-						czSeal.PrimaryMags[i] = czWeapon.szMag;
+						czSeal.PrimaryMags[i] = czWeapon.szMags;
 					break;
 
 				case 1:
 					for (int i = 0; i < czWeapon.defaultMags; i++)
-						czSeal.SecondaryMags[i] = czWeapon.szMag;
+						czSeal.SecondaryMags[i] = czWeapon.szMags;
 					break;
 
 				case 2:
-					czSeal.EqSlot1Ammo = czWeapon.szMag;
+					czSeal.EqSlot1Ammo = czWeapon.szMags;
 					break;
 
 				case 3:
-					czSeal.EqSlot2Ammo = czWeapon.szMag;
+					czSeal.EqSlot2Ammo = czWeapon.szMags;
 					break;
 
 				case 4:
-					czSeal.EqSlot3Ammo = czWeapon.szMag;
+					czSeal.EqSlot3Ammo = czWeapon.szMags;
 					break;
 
 				default: break;
@@ -944,8 +1468,8 @@ namespace Engine
 				Classes::CZAmmo czAmmo = g_PSXMemory.Read<Classes::CZAmmo>(pAmmoAddr);
 				newAmmoType.pAmmoName = czAmmo.pAmmoName;
 				newAmmoType.pDisplayName = czAmmo.pDisplayName;
-				for (int i = 0; i < 4; i++)
-					newAmmoType.pad_001C[i] = czAmmo.pad_001C[i];
+				newAmmoType.pHitAnim = czAmmo.pHitAnim;
+				newAmmoType.m_ID = czAmmo.m_ID;
 
 				// empty storage for custom ammo type ( the game will empty this via game tick )
 				const auto& pEmptyCharArray = sealAddr + offsetof(Classes::CZSealBody, pad_07A0) + 0x9C; 
@@ -1068,7 +1592,7 @@ void SOCOM::Update()
 		return reset("failed to obtain eemem");
 
 	//	GET LOCAL PLAYER
-	auto pLocalPlayer = g_PSXMemory.Read<__int32>(globals.m_EE + Offsets::gLocalSeal);;
+	auto pLocalPlayer = g_PSXMemory.Read<__int32>(globals.m_EE + Offsets::gLocalSeal);
 	if (!pLocalPlayer)
 		return reset("failed to obtain local player");
 

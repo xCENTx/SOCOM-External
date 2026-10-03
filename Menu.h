@@ -3,6 +3,7 @@
 #include <SDK/SOCOM.h>
 #include <chrono>
 #include <thread>
+#include "LoadoutUI.h"
 using namespace std::chrono_literals;
 
 class Menu
@@ -10,7 +11,7 @@ class Menu
 public: // menu controls
 	bool bRunning{ true };
 	bool bShowMenu{ true };
-	bool bShowStats{ true };
+	bool bShowStats{ false };
 
 public:	//	visual controls
 	bool bESP{ false };
@@ -61,6 +62,7 @@ private:
 	DxWindow::SOverlay elements;
 	void RenderCache();
 	void RenderAnalytics();
+	LoadoutUI m_loadout;
 }; inline std::unique_ptr<Menu> g_Menu;
 
 //	basic color defines

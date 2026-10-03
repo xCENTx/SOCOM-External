@@ -67,111 +67,189 @@ void Menu::Draw()
 void Menu::MainMenu()
 {
     auto MenuRect = GetImGuiMenuBounds();
+
     ImGui::SetNextWindowPos(MenuRect.Min);
     ImGui::SetNextWindowSize(MenuRect.GetSize());
+
     if (!ImGui::Begin("SOCOM", &bShowMenu, 96))
     {
         ImGui::End();
         return;
     }
-    auto width = ImGui::GetContentRegionAvail().x;
-    auto height = ImGui::GetContentRegionAvail().y;
 
-    //  ESP
-    ImGui::Checkbox("ESP", &this->bESP);
-    if (this->bESP)
+    const float exitHeight =
+        ImGui::GetTextLineHeightWithSpacing() * 2.f;
+
+    const float footerSpacing =
+        ImGui::GetStyle().ItemSpacing.y;
+
+    //
+    // Reserve the bottom of the window for EXIT.
+    //
+    ImGui::BeginChild(
+        "##menu_content",
+        ImVec2(
+            0.f,
+            -(exitHeight + footerSpacing)
+        ),
+        false
+    );
+
+    const float width =
+        ImGui::GetContentRegionAvail().x;
+
+    if (ImGui::BeginTabBar("##main_tab_bar"))
     {
-        ImGui::SameLine();
-        ImGui::Checkbox("##render_players", &this->bESPPlayers);
-        GUI::Tooltip("PLAYERS");
-        ImGui::SameLine();
-        ImGui::Checkbox("##render_pickups", &this->bESPPickups);
-        GUI::Tooltip("PICKUPS");
-        ImGui::SameLine();
-        ImGui::Checkbox("##names", &this->bESPName);
-        GUI::Tooltip("NAMES");
-        ImGui::SameLine();
-        ImGui::Checkbox("##snap_lines", &this->bESPSnap);
-        GUI::Tooltip("SNAP LINES");
-        ImGui::SameLine();
-        ImGui::Checkbox("##box_2D", &this->bESPBox2D);
-        GUI::Tooltip("2D BOX");
-        ImGui::SameLine();
-        ImGui::Checkbox("##box_health", &this->bESPHealth);
-        GUI::Tooltip("HEALTH");
+        if (ImGui::BeginTabItem("MAIN"))
+        {
+            //
+            // ESP
+            //
+            ImGui::Checkbox("ESP", &this->bESP);
 
-        ImGui::SameLine();
-        ImGui::SetCursorPosX(width * .5);
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-        ImGui::SliderFloat("##ESP_DISTANCE", &mESPDist, 0.0f, 100.f, "%.0f");
+            if (this->bESP)
+            {
+                ImGui::SameLine();
+                ImGui::Checkbox("##render_players", &this->bESPPlayers);
+                GUI::Tooltip("PLAYERS");
+
+                ImGui::SameLine();
+                ImGui::Checkbox("##render_pickups", &this->bESPPickups);
+                GUI::Tooltip("PICKUPS");
+
+                ImGui::SameLine();
+                ImGui::Checkbox("##names", &this->bESPName);
+                GUI::Tooltip("NAMES");
+
+                ImGui::SameLine();
+                ImGui::Checkbox("##snap_lines", &this->bESPSnap);
+                GUI::Tooltip("SNAP LINES");
+
+                ImGui::SameLine();
+                ImGui::Checkbox("##box_2D", &this->bESPBox2D);
+                GUI::Tooltip("2D BOX");
+
+                ImGui::SameLine();
+                ImGui::Checkbox("##box_health", &this->bESPHealth);
+                GUI::Tooltip("HEALTH");
+
+                ImGui::SameLine();
+
+                ImGui::SetCursorPosX(width * .5f);
+
+                ImGui::SetNextItemWidth(
+                    ImGui::GetContentRegionAvail().x
+                );
+
+                ImGui::SliderFloat(
+                    "##ESP_DISTANCE",
+                    &mESPDist,
+                    0.0f,
+                    100.f,
+                    "%.0f"
+                );
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("LOADOUT"))
+        {
+            m_loadout.Draw();
+
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("DEBUG"))
+        {
+            if (ImGui::Button("REFILL AMMO"))
+            {
+                Engine::zdb::Patches::RefillAllAmmo();
+            }
+
+            if (ImGui::Button("FORCE COMPLETE MISSION"))
+            {
+                Engine::zdb::Patches::ForceCompleteMission();
+            }
+
+            if (ImGui::SliderInt(
+                "FPS",
+                &this->mFPS,
+                0,
+                60))
+            {
+                Engine::zdb::Patches::SetFramerate(
+                    this->mFPS
+                );
+            }
+
+            ImGui::Checkbox(
+                "SHOW DEBUG STATS",
+                &this->bShowStats
+            );
+
+            if (ImGui::Button(
+                "DUMP ENTITIES",
+                ImVec2(
+                    ImGui::GetContentRegionAvail().x,
+                    ImGui::GetTextLineHeight() * 2.f
+                )))
+            {
+                Engine::zdb::Tools::Dumper::Entities();
+            }
+
+            if (ImGui::Button(
+                "DUMP PICKUPS",
+                ImVec2(
+                    ImGui::GetContentRegionAvail().x,
+                    ImGui::GetTextLineHeight() * 2.f
+                )))
+            {
+                Engine::zdb::Tools::Dumper::Pickups();
+            }
+
+            if (ImGui::Button(
+                "DUMP WEAPONS",
+                ImVec2(
+                    ImGui::GetContentRegionAvail().x,
+                    ImGui::GetTextLineHeight() * 2.f
+                )))
+            {
+                Engine::zdb::Tools::Dumper::Weapons();
+            }
+
+            if (ImGui::Button(
+                "DUMP PROJECTILES",
+                ImVec2(
+                    ImGui::GetContentRegionAvail().x,
+                    ImGui::GetTextLineHeight() * 2.f
+                )))
+            {
+                Engine::zdb::Tools::Dumper::Projectiles();
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
     }
-    
-    if (ImGui::Button("REFILL AMMO"))
+
+    ImGui::EndChild();
+
+
+    //
+    // ========================================================================
+    // FOOTER
+    // ========================================================================
+    //
+
+    if (ImGui::Button(
+        "EXIT",
+        ImVec2(
+            ImGui::GetContentRegionAvail().x,
+            exitHeight
+        )))
     {
-		Engine::zdb::Patches::RefillAllAmmo();
-    }
-    
-    if (ImGui::Button("FORCE COMPLETE MISSION"))
-    {
-        Engine::zdb::Patches::ForceCompleteMission();
-    }
-
-    if (ImGui::Button("GIVE M79"))
-    {
-        Engine::zdb::Patches::SetWeapon(
-            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_Secondary, // weapon slot
-            Engine::zdb::Enums::EWeapon::EWeapon_P_GL_M79 	    // weapon to give
-        );
-        Engine::zdb::Patches::SetWeapon(
-            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_EqSlot3, // weapon slot
-            Engine::zdb::Enums::EWeapon::EWeapon_EQ_M79HE 	    // weapon to give
-        );
-
-        Engine::zdb::Patches::SetWeaponAmmoType(
-            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_Secondary, // weapon slot
-            Engine::zdb::Enums::EWeaponAmmo::EWeaponAmmo_EMPTY
-        );
-
-        Engine::zdb::Patches::SetWeaponAmmoType(
-            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_EqSlot3, // weapon slot
-            Engine::zdb::Enums::EWeaponAmmo::EWeaponAmmo_M79_HE
-        );
-    }
-    
-    if (ImGui::Button("GIVE EXPLOSIVE BULLETS"))
-    {
-		Engine::zdb::Patches::SetWeaponAmmoType(
-			Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_Primary, // weapon slot
-			Engine::zdb::Enums::EWeaponAmmo::EWeaponAmmo_Satchel                // ammo type
-		);
-    }
-
-    if (ImGui::Button("SET CUSTOM AMMO"))
-    {
-		Engine::zdb::Classes::CZAmmo ammo;
-		ammo.bulletImpactDmg = 1337.f;
-		ammo.stun = 1337.f;
-		ammo.piercing = 1337.f;
-		ammo.explosionDamage = 0.f;
-		ammo.explosionRadius = 0.f;
-
-        Engine::zdb::Patches::SetAmmoProperties(
-            Engine::zdb::Enums::EWeaponIndex::EWeaponIndex_Primary, // weapon slot
-            ammo
-        );
-    }
-
-    if (ImGui::SliderInt("FPS", &this->mFPS, 0, 60))
-    {
-        Engine::zdb::Patches::SetFramerate(this->mFPS);
-    }
-
-    ImGui::Checkbox("SHOW DEBUG STATS", &this->bShowStats);
-
-    ImGui::SetCursorPosY(height - ImGui::GetTextLineHeightWithSpacing() * 2);
-    if (ImGui::Button("EXIT", ImGui::GetContentRegionAvail()))
-    {
-        //  shutdown
         this->bRunning = false;
     }
 

@@ -85,7 +85,7 @@ public:
 	/**/
 	inline const i64_t& GetSPRMemory() const { return pcxInfo.dwSPRBase; }
 };
-
+inline pcsx2Memory g_PSXMemory = pcsx2Memory("pcsx2-qt.exe");
 
 
 
@@ -164,15 +164,28 @@ namespace Engine
 #define AMMO_M203_FRAG 0xCC1490
 #define AMMO_M203_SMOKE 0xCC1500
 
+#define FIRETEAM_MASK(team) (1u << (team))
+
 		namespace Offsets
 		{
-			constexpr auto gAppCamera{ 0x48D488 };		//	black label
-			constexpr auto gLocalSeal{ 0x48D548 };		//	black label
-			constexpr auto gEntityArray{ 0x4D46A0 };	//	black label
-			constexpr auto gMission{ 0x4D4880 };		//	black label
-			constexpr auto gCamera{ 0x51E778 };			//	black label
-			constexpr auto gPickups{ 0x51E970 };		//	black label - ZArray<CPickup*>
-			constexpr auto gFPS{ 0x48CF60 };			//	black label - int
+			/* ALL OFFSETS ARE FROM BLACK LABEL (SCUS-97134) */
+			constexpr auto gAppCamera{ 0x48D488 };			//	
+			constexpr auto gLocalSeal{ 0x48D548 };			//	
+			constexpr auto gEntityArray{ 0x4D46A0 };		//	
+			constexpr auto gMission{ 0x4D4880 };			//	
+			constexpr auto gCamera{ 0x51E778 };				//	
+			constexpr auto gPickups{ 0x51E970 };			// ZArray<CPickup*>
+			constexpr auto gFPS{ 0x48CF60 };				// int
+			constexpr auto gOrdersArray{ 0x496780 };		// ORDER_TUPLE[gOrdersCount]
+			constexpr auto gOrdersCount{ 0x48D2AC };		// int
+			constexpr auto gTeamTablesArray{ 0x4494D0 };	// TEAM_TABLE[gTeamTablesCount]
+			constexpr auto gTeamTablesCount{ 0x48C79C };	//
+			constexpr auto gCommandsArray{ 0x48D2D4 };		// pointer to CMD_TABLE[gCommandsCount]
+			constexpr auto gCommandsCount{ 0x48D2DC };		//
+			constexpr auto gHud{ 0x48E594 };				// CHud
+			constexpr auto gWeaponsArray{ 0x52A490 };		// ZArray<CZWeapon*>
+			constexpr auto gAmmoArray{ 0x52A500 };			// ZArray<CZAmmo*>
+			constexpr auto gProjectileArray{ 0x48E568 };	// ZArray<CZProjectile*>
 		}
 
 		namespace Enums
@@ -335,11 +348,200 @@ namespace Engine
 				PICKUP_TYPE_AMMO,
 				PICKUP_TYPE_BOMB = 11
 			};
+
+			enum class FIRETEAM : __int8
+			{
+				FT_MP_PLAYER = 0,
+				FT_FIRETEAM,
+				FT_ALPHA,
+				FT_BRAVO,
+				FT_USER,
+				FT_RESERVED,
+				FT_ESCORTEE,
+				FT_MP_RADIO,
+				FT_MP_SOP,
+				FT_NEUTRAL,
+				FT_TURRETS,
+				FT_HOSTAGE,
+				FT_SUPPORT,
+				FT_ENEMIES,
+				FT_ALLIES,
+				FT_ALL
+			};
+
+			enum FT_COMMAND : uint8_t
+			{
+				CMD_UNKNOWN = 0,
+				CMD_ACTION,
+				CMD_DEPLOY,
+				CMD_FIREATWILL,
+				CMD_FOLLOW,
+				CMD_HOLDPOS,
+				CMD_HOLDFIRE,
+				CMD_REGROUP,
+				CMD_REMOVEKILLS,
+				CMD_AMBUSH,
+				CMD_RESTRAIN,
+				CMD_GETDOWN,
+				CMD_ESCORT,
+				CMD_GOTONODE,
+				CMD_STEALTHTO,
+				CMD_RUNTO,
+				CMD_LEADTO,
+				CMD_ATTACKTO,
+				CMD_BREACHBANGCLEAR,
+				CMD_BREACHFRAGCLEAR,
+				CMD_BREACHNONECLEAR,
+				CMD_BOMB,
+				CMD_EXTRACT,
+				CMD_COVERTARGET,
+				CMD_LASETARGET,
+				CMD_CLEARAREA,
+				CMD_AWARE,
+				CMD_AWAKE,
+				CMD_RADIO_CHANNEL_ZERO,
+				CMD_RADIO_CHANNEL, ONE,
+				CMD_RADIO_CHANNEL_TWO,
+				CMD_RADIO_CHANNEL_THREE,
+				CMD_RADIO_CHANNEL_ONOFF,
+				CMD_VOTE_ON,
+				CMD_VOTE_OFF,
+				CMD_GRENADE_THROWN,
+				CMD_ENEMY_DEAD,
+				CMD_FRIEND_DEAD,
+				CMD_UNDER_FIRE,
+				CMD_GOT_ONE,
+				CMD_ESCORTEE_FOLLOWING,
+				CMD_PLAYER_HAS_KILLED,
+				CMD_COVER_ME,
+				CMD_DEFUSE,
+				CMD_PROTECT,
+				CMD_POINT,
+				CMD_SOP1,
+				CMD_SOP2,
+				CMD_SOP3,
+				CMD_SOP4,
+				CMD_SOP5,
+				CMD_SOP6,
+				CMD_SOP7,
+				CMD_TAUNT1,
+				CMD_TAUNT2,
+				CMD_TAUNT3,
+				CMD_TAUNT4,
+				CMD_TAUNT5,
+				CMD_TAUNT6,
+				CMD_TAUNT7,
+				CMD_SEALS_WINNING,
+				CMD_TERRORISTS_WINNING,
+				CMD_HOSTAGE_KILLED,
+				CMD_BOMB_PLANTED,
+				CMD_TARGET_DESTROYED,
+				CMD_BOMB_DEFUSED,
+				CMD_MAX
+			};
+		
+			enum class NODE_TYPE : __int32
+			{
+				NODE_EMPTY,
+				NODE_GENERIC,
+				NODE_INSTANCE,
+				NODE_CHILD,
+				NODE_MULTI_PARENT,
+				NODE_UNK5,
+				NODE_GRID,
+				NODE_MODEL,
+				NODE_LIGHT,
+				NODE_LENSFLARE,
+				NODE_CELL
+			};
+
+			enum class ENTITY_TYPE : __int8
+			{
+				ENTITY_UNKNOWN,
+				ENTITY_RECYCLE,
+				ENTITY_SEAL,
+				ENTITY_TURRET
+			};
+
+			enum class MENU_STATE : __int8
+			{
+				MENU_STATE_NONE = 0,
+				MENU_STATE_WEAPON_SELECT = 1,
+				MENU_STATE_ORDERS = 2,
+				MENU_STATE_PAUSE_TEST = 3,
+				MENU_STATE_FS_MAP_MENU = 4,
+				MENU_STATE_FS_MAP_ANIM = 5,
+				MENU_STATE_LAST = 6
+
+			};
+
+			enum class PLAYER_CAM_STATE : __int8
+			{
+				CAM_MODE_UNKNOWN = 0,
+				CAM_MODE_TETHER = 1,
+				CAM_MODE_FP = 2,
+				CAM_MODE_APLOOK = 3,
+				CAM_MODE_NET = 4
+
+			};
+
+			enum class EQUIP_AMMO : __int32
+			{
+				AMMO_NONE = 0xff,
+
+				A_9X19 = 1,
+				A_22_RIFLE,
+				A_45_ACP,
+				A_45_CASELESS,
+				A_50_AE,
+				A_50_AE_AP,
+				A_545X39_SOVIET,
+				A_556X45,
+				A_762X51,
+				A_50_BROWNING,
+				A_FRAG_GRENADE,
+				A_SMOKE_GRENADE,
+				A_TEARGAS_GRENADE,
+				A_FLASHBANG,
+				A_WP_GRENADE,
+				A_SATCHEL_CHARGE,
+				A_CLAYMORE,
+				A_C4,
+				A_MPBOMB,
+				A_M203_HE,
+				A_M203_IL,
+				A_M203_SMOKE,
+				A_M203_GAS,
+				A_F18_MISSILE,
+				A_EXPLODING_BARREL,
+				A_HE_GRENADE,
+				A_12GAUGE,
+				A_M203_FRAG,
+				A_GL_FRAG,
+				A_GL_IL,
+				A_GL_SMOKE,
+				A_GL_GAS,
+				A_9X19S,
+				A_9X19SD,
+				A_556X45SD,
+				A_762X51SD,
+				A_762X39SD,
+				A_57X28,
+
+				AMMO_END = 254
+			};
 		}
 
 		namespace Structs
 		{
 			using namespace Enums;
+
+			struct RFloat
+			{
+				float min; //0x0000
+				float range; //0x0004
+			}; //Size: 0x0008
+			static_assert(sizeof(RFloat) == 0x8);
 
 			struct SCameraFrustrum
 			{
@@ -347,6 +549,44 @@ namespace Engine
 				Vec3 m_fullfrustum[6];    //0x0024
 				i32_t m_full_frustum_points;    //0x006C
 			};    //Size: 0x0070
+
+			struct CMD_TABLE
+			{
+				char displayText[32]; //0x0000
+				char recoText[32]; //0x0000
+				char description[128]; //0x0020
+				int32_t recoWordId; //0x00C0
+				FT_COMMAND command; //0x00C4
+				char pad_00C5[3]; //0x00C5
+				uint32_t teamMask; //0x00C8
+				bool multiplayerFlag; //0x00CC
+				char pad_00CD[3]; //0x00CD
+				int32_t subMenuCount; //0x00D0
+				uint32_t pSubMenu; //0x00D4	//	class CSubMenu*
+				int32_t displayIndex; //0x00D8
+                                // Dynamically rebuilt by
+                                // SetupCommandDisplay().
+			}; //Size: 0x00DC
+			static_assert(sizeof(CMD_TABLE) == 0xDC);
+
+			struct TEAM_TABLE
+			{
+				char displayText[32]; //0x0000
+				char recoText[32]; //0x0020
+				int32_t recoWordId; //0x0040
+				FIRETEAM teamType; //0x0044
+                                // Passed to CSealUnit::GetUnitByTeam()
+				int32_t displayIndex; //0x0048
+                                // SetupTeamDisplay writes the table index here for enabled entries.
+				bool has_cmd; //0x004C
+                                // CONFIRMED behavior: nonzero makes the team entry participate in menu navigation/display.
+				char pad_004D[3]; //0x004D
+				uint32_t pUnit; //0x0050 // class CSealUnit*
+                                // Refreshed by CSealUnit::GetUnitByTeam(teamType)
+				char descriptionText[128]; //0x0054
+                                // Used for the description/header UI.
+			}; //Size: 0x00D4
+			static_assert(sizeof(TEAM_TABLE) == 0xD4);
 
 			struct tag_CAMERA_PARAMS
 			{
@@ -431,6 +671,101 @@ namespace Engine
 		{
 			using namespace Structs;
 
+			class C2DOrderItem
+			{
+			public:
+				char pad_0000[600]; //0x0000
+				uint32_t pDisplayData; //0x0258 // unknown type
+				char pad_025C[4]; //0x025C
+			}; //Size: 0x0260
+			static_assert(sizeof(C2DOrderItem) == 0x260);
+
+			class CSubMenu
+			{
+			public:
+				uint32_t pText; //0x0000	//	char*
+				uint32_t pDisplayData; //0x0004	//	char* ?
+								// Used by C2DOrderItem at +0x258.
+								// Exact underlying type still unknown.
+				uint32_t pData; //0x0008
+			}; //Size: 0x000C
+			static_assert(sizeof(CSubMenu) == 0xC);
+
+			/*
+			* gOrdersArray
+			*/
+			class RecoTuple
+			{
+			public:
+				char subject[40]; //0x0000
+				int32_t subjectID; //0x0028
+				int32_t snum; //0x002C
+				char verb[40]; //0x0030
+				int32_t verbID; //0x0058
+				int32_t vnum; //0x005C
+				char object[40]; //0x0060
+				int32_t objectID; //0x0088
+				int32_t onum; //0x008C
+				bool send_command; //0x0090
+				FT_COMMAND command; //0x0091
+				char pad_0092[2]; //0x0092
+				uint32_t pData; //0x0094	//	void*
+				uint32_t pUnit; //0x0098	//	CSealUnit*
+			}; //Size: 0x009C
+			static_assert(sizeof(RecoTuple) == 0x9C);
+
+			/*
+			* CCoreState::Tick : a1 + 0xB8 = CHud
+			* CHud::Tick : a1 + 0x12BD0 = ORDERS_MENU_STATE
+			*
+			*/
+			class OrdersMenu
+			{
+			public:
+				uint8_t active;                 // 0x00
+											   // Set to 1 by DoOrdersMenuCalculations()
+				uint8_t unk0001[0x03];          // 0x01
+				float timers[3]; //0x0004
+				char pad_0010[4]; //0x0010
+				uint32_t pTeamItems; //0x0014	//	class C2DOrderItem*
+				uint32_t pCommandItems; //0x0018	//	class C2DOrderItem*
+				uint32_t pContextItems; //0x001C	//	class C2DOrderItem*
+				float collapseTimer; //0x0020
+				bool bClosing; //0x0024
+				char pad_0025[3]; //0x0025
+				int32_t itemCount[3]; //0x0028
+								   //
+								   // [0] teams
+								   // [1] commands
+								   // [2] context/submenu
+				int32_t selection[3]; //0x0034
+								   //
+								   // [0] team selection
+								   // [1] command display index
+								   // [2] context index
+				uint8_t selectedTeamType; //0x0040
+				char pad_0041[3]; //0x0041
+				uint32_t pSelectedSubMenu; //0x0044	//	class CSubMenu*
+				uint32_t pCommand; //0x0048	// class CMD_TABLE*
+				char pad_004C[44]; //0x004C
+				int32_t currentSelection; //0x0078
+								   // Current highlighted item.
+				int32_t currentColumn; //0x007C
+								   //
+								   // 0 = team
+								   // 1 = command
+								   // 2 = context
+				char pad_0080[12]; //0x0080
+			}; //Size: 0x008C
+			static_assert(sizeof(OrdersMenu) == 0x8C);
+
+			class CHud
+			{
+			public:
+				char pad_0000[0x12BD0];
+				OrdersMenu m_OrderMenu;
+			};
+
 			class CMission
 			{
 			public:
@@ -491,6 +826,15 @@ namespace Engine
 
 			};    //Size: 0x079C
 
+			class CSealUnit
+			{
+				__int32 unk0000; //0x0000
+				i32_t pInterface; //0x0004 Object/interface pointer whose function table is used for command validation/execution.
+				char pad_0008[48]; //0x0008
+				i32_t mTeam; //0x0038 FIRETEAM
+			};
+			static_assert(sizeof(CSealUnit) == 0x3C);
+
 			class CZSealObject
 			{
 			private:
@@ -500,20 +844,80 @@ namespace Engine
 				float							m_selfVisible;				//0x009C	//	255 = visible : 0 = invisible
 			};	//Size: 0x0100
 
-			class CZSealBody
+			class CNode
+			{
+			public:
+				Matrix4x4 m_mtx; //0x0000
+				AABB m_bounds; //0x0040
+				NODE_TYPE m_type; //0x0058
+				i32_t mBits; //0x005C
+				char pad_0060[4]; //0x0060
+				i32_t pParent; //0x0064	CNode*
+				char pad_0068[40]; //0x0068
+				i32_t pName; //0x0090 char*
+				i32_t pNodeEx; //0x0094 // class CNodeEx*
+				char mGlobalLighting; //0x0098
+				unsigned char m_frameRendered; //0x0099
+				char pad_009A[2]; //0x009A
+				float mOpacity; //0x009C
+				char pad_00A0[4]; //0x00A0
+				__int32 mTickCount; //0x00A4
+				char pad_00A8[8]; //0x00A8
+				i32_t pModel; //0x00B0 // class CModel*
+				i32_t pModelName; //0x00B4 char*
+				char pad_00B8[8]; //0x00B8
+			}; 
+			static_assert(sizeof(CNode) == 0x00C0, "Size of CNode is not correct.");
+
+			class CSealCTRL
+			{
+				i32_t vfTable; //0x0000
+				i32_t p_entity; //0x0004 CZSealBody*
+				float mThrottle[3]; //0x0008
+				float mLookTimer; //0x0014
+				RFloat m_look_rate; //0x0018
+				char pad_0020[4]; //0x0020
+				Vec3 N00006878; //0x0024
+				Vec3 N000035D9; //0x0030
+				Vec3 N00006879; //0x003C
+				int mLookFlags; //0x0048
+				RFloat m_scan_angles; //0x004C
+				char pad_0054[136]; //0x0054
+				i32_t p_unit; //0x00DC CSealUnit*
+				char pad_00E0[320]; //0x00E0
+				PLAYER_CAM_STATE m_cam_state; //0x0220
+				MENU_STATE m_menu_state; //0x0221
+				char pad_0222[24]; //0x0222
+			}; //Size: 0x023A
+			static_assert(sizeof(CSealCTRL) == 0x23C);
+
+			class CEntity
 			{
 			public:
 				i32_t							pVFTable;					//0x0000
-				char							pad_0004[16];				//0x0004
+				char							pad_0004[12];				//0x0004
+				ENTITY_TYPE						m_EntityType;				//0x0010
+				char							pad_0011[3];				//0x0011
 				i32_t							pName;						//0x0014
 				char							pad_0018[4];				//0x0018
 				Vec3							origin;						//0x001C
 				i32_t							pSealTM;					//0x0028	* CZSealObject
 				char							pad_002C[84];				//0x002C
 				Matrix4x4						m_Matrix;					//0x0080
-				i32_t							pSealCTRL;					//0x00C0	* CZSealCTRL
-				__int32							TeamID;						//0x00C4
+				i32_t							pSealCTRL;					//0x00C0	* CSealCTRL
+				__int32							TeamMask;					//0x00C4
 				char							pad_00C8[152];				//0x00C8
+			};
+
+			class CZKit
+			{
+			public:
+
+			};
+
+			class CZSealBody : public CEntity
+			{
+			public:
 				EZoomState						ZoomState;					//0x0160
 				char							pad_0161[3];				//0x0161
 				float							ZoomLevel;					//0x0164
@@ -568,28 +972,50 @@ namespace Engine
 			class CZWeapon
 			{
 			public:
-				char							pad_0000[4];				//0x0000
-				i32_t							pName;						//0x0004
-				i32_t							pNameDesc;					//0x0008
-				char							pad_000C[4];				//0x000C
-				i32_t							pIconName;					//0x0010
-				char							pad_0014[4];				//0x0014
-				i32_t							pNameFull;					//0x0018
-				i32_t							pBulletImpactName;			//0x001C
-				EWeaponFireMode					mMaxFireMode;				//0x0020
-				__int32							szMag;						//0x0024
-				__int32							defaultMags;				//0x0028
-				char							pad_002C[12];				//0x002C
-				float							maxRange;					//0x0038
-				float							effectiveRange;				//0x003C
-				char							pad_0040[4];				//0x0040
-				float							impactRadius;				//0x0044
-				float							fireWait;					//0x0048
-				char							pad_004C[4];				//0x004C
-				bool							bReloadAfterShot;			//0x0050
-				char							pad_0051[415];				//0x0051
+				char							pad_0000[4];                  // 0x0000
+				i32_t							pName;                        // 0x0004
+				i32_t							pDisplayName;                 // 0x0008
+				i32_t							pTextureName;                 // 0x000C
+				i32_t							pIconName;                    // 0x0010
+				i32_t							pGearName;                    // 0x0014
+				i32_t							pModelName;                   // 0x0018
+				i32_t							pBulletImpactName;            // 0x001C
+				EWeaponFireMode					maxFireMode;                  // 0x0020
+				i32_t							szMags;                       // 0x0024
+				i32_t							defaultMags;                  // 0x0028
+				float							mSoundRadius;                 // 0x002C
+				float							mSoundRadiusSq;               // 0x0030
+				char							Encumberance;                 // 0x0034
+				char							pad_0035[3];                  // 0x0035
+				float							mMaxRange;                    // 0x0038
+				float							mEffectiveRange;              // 0x003C
+				float							mMuzzleVelocity;              // 0x0040
+				float							mImpactRadius;                // 0x0044
+				float							mFireWait;                    // 0x0048
+				float							mReloadTime;                  // 0x004C
+				bool							bReloadAfterShot;             // 0x0050
+				char							pad_0051[3];                  // 0x0051
+				__int32							mBits;                        // 0x0054
+				float							mRangeMin;                    // 0x0058
+				float							mRangeMax;                    // 0x005C
+				i32_t							mItemID;                      // 0x0060
+				i32_t							pHitAnim;                     // 0x0064
+				i32_t							pFireAnim;                    // 0x0068
+				i32_t							pZoomFireAnim;                // 0x006C
+				i32_t							pDefaultSpecialAnim;          // 0x0070
+				i32_t							pSpecialMaterialAnim;         // 0x0074
+				i32_t							pSound_Reload;                // 0x0078
+				i32_t							pSoundName_Reload;            // 0x007C
+				i32_t							pAnimName_Hit;                // 0x0080
+				i32_t							pAnimName_Fire;               // 0x0084
+				i32_t							pAnimName_DefaultSpecial;     // 0x0088
+				i32_t							pAnimName_SpecialMaterial;    // 0x008C
+				char							pad_0090[12];                 // 0x0090
+				Structs::ZArray					mLegalAmmoList;                // 0x009C
+				bool							bHasFireMode[4];              // 0x00A8
+			}; // Size: 0x00AC
 
-			};	//Size: 0x0080
+			static_assert(sizeof(CZWeapon) == 0xAC);
 
 			class CZAmmo
 			{
@@ -601,8 +1027,9 @@ namespace Engine
 				float							piercing;					//0x0010
 				float							explosionDamage;			//0x0014
 				float							explosionRadius;			//0x0018
-				char							pad_001C[4];				//0x001C
-			};	//Size: 0x0080
+				i32_t							pHitAnim;					//0x001C
+				EQUIP_AMMO						m_ID;						//0x0020
+			};	//Size: 0x0024
 		
 			class CPickup
 			{
@@ -656,6 +1083,7 @@ namespace Engine
 			namespace Entity
 			{
 				bool GetLocalSeal(Classes::CZSealBody& pSeal, i64_t* pAddr);
+				bool GetEntities(std::vector<Classes::CEntity>* entities);
 				bool GetPlayers(std::vector<Classes::CZSealBody>* players);
 				bool GetPickups(std::vector<Classes::CPickup>& pickups);
 			}
@@ -670,6 +1098,93 @@ namespace Engine
 			namespace Game
 			{
 				int GetFramerate();
+			}
+
+			namespace Dumper
+			{
+				void Orders(); // dumps the orders array
+				void Teams(); // dumps the orders array
+				void Commands(); // dumps the commands array
+				void Entities(); // dumps the entity array
+				void Pickups(); // dumps the pickup array
+				void Projectiles(); // dumps the projectile array
+				void Weapons(); // dumps the weapons array
+				void Ammo(); // dumps the ammo array
+			}
+
+			namespace Container
+			{
+				template <typename Callback>
+				void ZArray_ForEachAddress(const Structs::ZArray& array, Callback&& callback)
+				{
+					__int64 eemem = g_PSXMemory.GetEEMemory();
+					if (!eemem)
+						return;
+
+					if (array.count <= 0 || array.begin <= 0)
+						return;
+
+					i32_t current = array.begin;
+
+					for (i32_t i = 0; i < array.count; i++)
+					{
+						if (!current)
+							break;
+
+						auto it = g_PSXMemory.Read<Structs::ZIterator>(eemem + current);
+
+						if (it.data > 0)
+							callback(it.data);
+
+						current = it.next;
+					}
+				}
+
+				template <typename T, typename Callback>
+				void ZArray_ForEach(const Structs::ZArray& array, Callback&& callback)
+				{
+					__int64 eemem = g_PSXMemory.GetEEMemory();
+					if (!eemem)
+						return;
+
+					ZArray_ForEachAddress( array, [&](i32_t address)
+						{
+							auto object = g_PSXMemory.Read<T>( eemem + address );
+
+							callback(object, address);
+						}
+					);
+				}
+				
+				template <typename T, typename Predicate>
+				i32_t ZArray_Find(const Structs::ZArray& array, Predicate&& predicate)
+				{
+					__int64 eemem = g_PSXMemory.GetEEMemory();
+					if (!eemem)
+						return 0;
+
+					if (array.count <= 0 || array.begin <= 0 || array.end <= 0)
+						return 0;
+
+					i32_t current = array.begin;
+
+					while (current != array.end)
+					{
+						auto it = g_PSXMemory.Read<Structs::ZIterator>( eemem + current );
+
+						if (it.data > 0)
+						{
+							auto object = g_PSXMemory.Read<T>( eemem + it.data );
+
+							if (predicate(object, it.data))
+								return it.data;
+						}
+
+						current = it.next;
+					}
+
+					return 0;
+				}
 			}
 		}
 
@@ -753,5 +1268,4 @@ public:
 	void ShutDown();
 }; 
 
-inline pcsx2Memory g_PSXMemory = pcsx2Memory("pcsx2-qt.exe");
 inline std::unique_ptr<SOCOM> g_SOCOM;

@@ -67,6 +67,11 @@ namespace Engine
 		void normalize();
 	};
 
+	struct AABB
+	{
+		Vec3 m_min, m_max;
+	};
+
 	struct Matrix16
 	{
 		float m[16];
