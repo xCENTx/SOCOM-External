@@ -70,11 +70,9 @@ void Menu::MainMenu()
         return;
     }
 
-    const float exitHeight =
-        ImGui::GetTextLineHeightWithSpacing() * 2.f;
+    const float exitHeight = ImGui::GetTextLineHeightWithSpacing() * 2.f;
 
-    const float footerSpacing =
-        ImGui::GetStyle().ItemSpacing.y;
+    const float footerSpacing = ImGui::GetStyle().ItemSpacing.y;
 
     //
     // Reserve the bottom of the window for EXIT.
@@ -88,8 +86,7 @@ void Menu::MainMenu()
         false
     );
 
-    const float width =
-        ImGui::GetContentRegionAvail().x;
+    const float width = ImGui::GetContentRegionAvail().x;
 
     if (ImGui::BeginTabBar("##main_tab_bar"))
     {
@@ -256,7 +253,13 @@ void Menu::SHROUD()
     ImGui::SetNextWindowSize(wndw.GetSize());
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4());
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs;
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar
+        | ImGuiWindowFlags_NoResize
+        | ImGuiWindowFlags_NoMove
+        | ImGuiWindowFlags_NoScrollbar
+        | ImGuiWindowFlags_NoSavedSettings
+        | ImGuiWindowFlags_NoInputs;
+
     if (!ImGui::Begin("##SHROUDWINDOW", nullptr, flags))
     {
         ImGui::PopStyleColor();
