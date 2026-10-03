@@ -41,6 +41,26 @@ typedef struct MODULEINFO64
 	std::string						mModName{ "" };						//	module name
 } MODULEINFO32, modInfo_t;
 
+typedef struct WINDOWINFO64
+{
+	HWND hWnd{ nullptr };
+
+	std::string mTitle;
+	std::string mClassName;
+
+	int mWidth{ 0 };
+	int mHeight{ 0 };
+
+	bool bVisible{ false };
+	bool bOwned{ false };
+	bool bToolWindow{ false };
+
+	LONG64 GetArea() const
+	{
+		return static_cast<LONG64>(mWidth) * mHeight;
+	}
+}WINDOWINFO32, wndwInfo_t;
+
 //	assembly opcode index for ripping an offset from an instruction in memory
 enum class EASM : int
 {
@@ -264,6 +284,12 @@ public:	//	methods for obtaining info on active processes
 	/* obtains a list of all modules loaded in the attached process */
 	static inline bool GetProcessModulesEx(const DWORD& dwPID, std::vector< modInfo_t>& moduleList);
 
+	/* obtains all top-level windows belonging to the specified process */
+	static inline bool GetProcessWindowsEx(const DWORD& dwPID, std::vector<wndwInfo_t>& windowList);
+
+	/* attempts to determine the primary window belonging to the specified process */
+	static inline HWND GetProcessWindowEx(const DWORD& dwPID);
+
 	/* gets info on a process by name , can be extended to attach to the process if found
 	* utilizes GetActiveProcesses method which is somewhat slow as it obtains ALL processes before returning
 	*/
@@ -364,12 +390,14 @@ protected:
 	{
 		unsigned int procId;
 		HWND hwnd;
+		LONG64 area{ 0 };
+		std::vector<wndwInfo_t>* windowList{ 0 };
 	};
 
 	/* callback for EnumWindows to find the maine process window
 	* ref: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumwindows
 	*/
-	static inline BOOL CALLBACK GetProcWindowEx(HWND handle, LPARAM lParam);
+	static inline BOOL CALLBACK EnumProcessWindowsEx(HWND handle, LPARAM lParam);
 };
 
 
@@ -816,6 +844,54 @@ bool exMemory::GetProcessModulesEx(const DWORD& dwPID, std::vector<modInfo_t>& l
 	return list.size() > 0;
 }
 
+HWND exMemory::GetProcessWindowEx(const DWORD& dwPID)
+{
+	std::vector<wndwInfo_t> windows;
+
+	if (!GetProcessWindowsEx(dwPID, windows))
+		return nullptr;
+
+	const wndwInfo_t* best = nullptr;
+
+	for (const auto& window : windows)
+	{
+		if (!window.bVisible)
+			continue;
+
+		if (window.bOwned)
+			continue;
+
+		if (window.bToolWindow)
+			continue;
+
+		if (window.mWidth <= 0 || window.mHeight <= 0)
+			continue;
+
+		if (!best || window.GetArea() > best->GetArea())
+			best = &window;
+	}
+
+	return best ? best->hWnd : nullptr;
+}
+
+bool exMemory::GetProcessWindowsEx(const DWORD& dwPID, std::vector<wndwInfo_t>& windowList)
+{
+	windowList.clear();
+
+	if (!dwPID)
+		return false;
+
+	EnumWindowData data{};
+	data.procId = dwPID;
+	data.windowList = &windowList;
+
+	if (!EnumWindows(EnumProcessWindowsEx, reinterpret_cast<LPARAM>(&data)))
+		return false;
+
+	return !windowList.empty();
+
+}
+
 bool exMemory::FindProcessEx(const std::string& procName, procInfo_t* procInfo, const bool& bAttach, const DWORD& dwDesiredAccess)
 {
 	bool result = false;
@@ -865,10 +941,7 @@ bool exMemory::FindProcessEx(const std::string& procName, procInfo_t* procInfo, 
 		proc.dwAccessLevel = dwDesiredAccess;				//  desired access level
 
 		//  attempt to get main process window
-		EnumWindowData eDat;
-		eDat.procId = proc.dwPID;
-		if (EnumWindows(GetProcWindowEx, reinterpret_cast<LPARAM>(&eDat)))
-			proc.hWnd = eDat.hwnd;
+		proc.hWnd = GetProcessWindowEx(proc.dwPID);
 
 		//  Get window title
 		char buffer[MAX_PATH];
@@ -1287,20 +1360,43 @@ bool exMemory::LoadLibraryInjectorEx(const HANDLE& hProc, const std::string& dll
 //
 //-------------------------------------------------------------------------------------------------
 
-BOOL CALLBACK exMemory::GetProcWindowEx(HWND window, LPARAM lParam)
+BOOL CALLBACK exMemory::EnumProcessWindowsEx(HWND window, LPARAM lParam)
 {
-	auto data = reinterpret_cast<EnumWindowData*>(lParam);
+	auto* data = reinterpret_cast<EnumWindowData*>(lParam);
+	if (!data || !data->windowList)
+		return FALSE;
 
-	DWORD windowPID;
+	DWORD windowPID = 0;
 	GetWindowThreadProcessId(window, &windowPID);
+	if (windowPID != data->procId)
+		return TRUE;
 
-	bool isMainWindow = GetWindow(window, GW_OWNER) == (HWND)0 && IsWindowVisible(window);
-	if (windowPID != data->procId || !isMainWindow)
-		return true;
+	wndwInfo_t info{};
+	info.hWnd = window;
+	info.bVisible = IsWindowVisible(window);
+	info.bOwned = GetWindow(window, GW_OWNER) != nullptr;
 
-	data->hwnd = window;
+	const LONG_PTR exStyle = GetWindowLongPtrW(window, GWL_EXSTYLE);
+	info.bToolWindow = (exStyle & WS_EX_TOOLWINDOW) != 0;
 
-	return true;
+	RECT clientRect{};
+	if (GetClientRect(window, &clientRect))
+	{
+		info.mWidth = clientRect.right - clientRect.left;
+		info.mHeight = clientRect.bottom - clientRect.top;
+	}
+
+	char buffer[MAX_PATH]{};
+	if (GetWindowTextA(window, buffer, MAX_PATH))
+		info.mTitle = buffer;
+	memset(buffer, 0, sizeof(buffer));
+
+	if (GetClassNameA(window, buffer, MAX_PATH))
+		info.mClassName = buffer;
+
+	data->windowList->push_back(std::move(info));
+
+	return TRUE;
 }
 
 
